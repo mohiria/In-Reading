@@ -1,22 +1,19 @@
 import React, { useEffect, useState } from 'react'
-import { getSettings, saveSettings } from '../common/storage/settings'
-import { ProficiencyLevel, UserSettings, SavedWord, LLMProvider, LLMSettings } from '../common/types'
-import { getVocabulary, removeFromVocabulary } from '../common/storage/vocabulary'
+import { ProficiencyLevel, SavedWord, LLMProvider, LLMSettings } from '../common/types'
+import { useSettings } from '../common/hooks/useSettings'
+import { useVocabulary } from '../common/hooks/useVocabulary'
+import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { Trash2, Settings, BookOpen, Cpu, Globe, Keyboard } from 'lucide-react'
 import { formatIPA } from '../common/utils/format'
 
 export const Popup = () => {
-  const [settings, setSettings] = useState<UserSettings | null>(null)
-  const [vocabulary, setVocabulary] = useState<SavedWord[]>([])
+  const { settings, updateSettings } = useSettings()
+  const { vocabulary, removeWord } = useVocabulary()
   const [activeTab, setActiveTab] = useState<'general' | 'llm' | 'vocab'>('general')
   const [tabEnabled, setTabEnabled] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
 
   useEffect(() => {
-    getSettings().then(setSettings)
-    getVocabulary().then(setVocabulary)
-
-    // Get current tab state
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0]?.id
       if (tabId) {
@@ -27,27 +24,14 @@ export const Popup = () => {
       }
     })
 
-    // Listen for storage changes to keep UI in sync
-    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName === 'sync' && changes.settings) {
-        setSettings(changes.settings.newValue)
-      }
-    }
-
-    // Listen for tab state changes from background (shortcut)
     const handleMessage = (request: any) => {
       if (request.type === 'TAB_STATE_CHANGED' && request.tabId === currentTabId) {
         setTabEnabled(request.enabled)
       }
     }
 
-    chrome.storage.onChanged.addListener(handleStorageChange)
     chrome.runtime.onMessage.addListener(handleMessage)
-    
-    return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange)
-      chrome.runtime.onMessage.removeListener(handleMessage)
-    }
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [currentTabId])
 
   const toggleTabEnabled = () => {
@@ -57,37 +41,18 @@ export const Popup = () => {
     }
   }
 
-  const updateSettings = async (updater: (prev: UserSettings) => UserSettings) => {
+  const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSettings({ proficiency: e.target.value as ProficiencyLevel })
+  }
+
+  const handleLLMUpdate = (updates: Partial<LLMSettings>) => {
     if (!settings) return
-    const updated = updater(settings)
-    setSettings(updated)
-    await saveSettings(updated)
-  }
-
-  const handleLevelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateSettings(prev => ({ ...prev, proficiency: e.target.value as ProficiencyLevel }))
-  }
-
-  const handleEngineChange = async (engine: 'standard' | 'llm') => {
-    updateSettings(prev => ({ ...prev, engine }))
-  }
-
-  const handleLLMUpdate = async (updates: Partial<LLMSettings>) => {
-    updateSettings(prev => ({
-      ...prev,
-      llm: { ...prev.llm, ...updates }
-    }))
-  }
-
-  const handleDeleteWord = async (wordText: string) => {
-    await removeFromVocabulary(wordText)
-    const updated = await getVocabulary()
-    setVocabulary(updated)
+    updateSettings({
+      llm: { ...settings.llm, ...updates }
+    })
   }
 
   if (!settings) return <div style={{ padding: '1rem' }}>Loading...</div>
-
-  // --- Sub-Components for Tabs ---
 
   const GeneralTab = () => (
     <div style={{ animation: 'fadeIn 0.2s' }}>
@@ -115,36 +80,24 @@ export const Popup = () => {
           Pronunciation Style:
         </label>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => updateSettings(prev => ({ ...prev, pronunciation: 'US' }))}
-            style={{
-              flex: 1,
-              padding: '6px',
-              borderRadius: '6px',
-              border: settings.pronunciation === 'US' ? '1px solid #4b8bf5' : '1px solid #ddd',
-              backgroundColor: settings.pronunciation === 'US' ? '#f0f7ff' : 'white',
-              color: settings.pronunciation === 'US' ? '#4b8bf5' : '#333',
-              cursor: 'pointer',
-              fontSize: '0.8rem'
-            }}
-          >
-            US (American)
-          </button>
-          <button
-            onClick={() => updateSettings(prev => ({ ...prev, pronunciation: 'UK' }))}
-            style={{
-              flex: 1,
-              padding: '6px',
-              borderRadius: '6px',
-              border: settings.pronunciation === 'UK' ? '1px solid #4b8bf5' : '1px solid #ddd',
-              backgroundColor: settings.pronunciation === 'UK' ? '#f0f7ff' : 'white',
-              color: settings.pronunciation === 'UK' ? '#4b8bf5' : '#333',
-              cursor: 'pointer',
-              fontSize: '0.8rem'
-            }}
-          >
-            UK (British)
-          </button>
+          {['US', 'UK'].map((p) => (
+            <button
+              key={p}
+              onClick={() => updateSettings({ pronunciation: p as 'US' | 'UK' })}
+              style={{
+                flex: 1,
+                padding: '6px',
+                borderRadius: '6px',
+                border: settings.pronunciation === p ? '1px solid #4b8bf5' : '1px solid #ddd',
+                backgroundColor: settings.pronunciation === p ? '#f0f7ff' : 'white',
+                color: settings.pronunciation === p ? '#4b8bf5' : '#333',
+                cursor: 'pointer',
+                fontSize: '0.8rem'
+              }}
+            >
+              {p} ({p === 'US' ? 'American' : 'British'})
+            </button>
+          ))}
         </div>
       </div>
 
@@ -154,7 +107,7 @@ export const Popup = () => {
         </label>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            onClick={() => handleEngineChange('standard')}
+            onClick={() => updateSettings({ engine: 'standard' })}
             style={{
               flex: 1,
               padding: '8px',
@@ -170,11 +123,11 @@ export const Popup = () => {
               fontSize: '0.85rem'
             }}
           >
-            <Globe size={14} /> Standard (Stable)
+            <Globe size={14} /> Standard
           </button>
           <button
             onClick={() => {
-              handleEngineChange('llm')
+              updateSettings({ engine: 'llm' })
               setActiveTab('llm')
             }}
             style={{
@@ -199,44 +152,23 @@ export const Popup = () => {
     </div>
   )
 
-  const LLM_MODELS: Record<Exclude<LLMProvider, 'custom'>, string[]> = {
-    gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'],
-    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-    claude: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-20240229'],
-    deepseek: ['deepseek-chat', 'deepseek-reasoner']
-  }
-
-  const LLM_DEFAULT_URLS: Record<LLMProvider, string> = {
-    gemini: 'https://generativelanguage.googleapis.com',
-    openai: 'https://api.openai.com/v1',
-    claude: 'https://api.anthropic.com',
-    deepseek: 'https://api.deepseek.com',
-    custom: 'https://api.your-proxy.com/v1'
-  }
-
   const LLMTab = () => {
-    const isCustomProvider = settings.llm.provider === 'custom'
-    const providerModels = !isCustomProvider ? (LLM_MODELS[settings.llm.provider as keyof typeof LLM_MODELS] || []) : []
+    const provider = settings.llm.provider
+    const isCustom = provider === 'custom'
+    const models = !isCustom ? LLM_MODELS[provider as keyof typeof LLM_MODELS] : []
 
     return (
       <div style={{ animation: 'fadeIn 0.2s' }}>
-        <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '1rem', lineHeight: '1.4' }}>
-          AI provides context-aware translations but requires an API Key.
-        </p>
-
         <div style={{ marginBottom: '0.8rem' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Provider</label>
           <select 
-            value={settings.llm.provider} 
+            value={provider} 
             onChange={(e) => {
-              const newProvider = e.target.value as LLMProvider
-              const updates: Partial<LLMSettings> = { provider: newProvider }
-              if (newProvider !== 'custom') {
-                updates.model = LLM_MODELS[newProvider as keyof typeof LLM_MODELS][0]
-              } else {
-                updates.model = ''
-              }
-              handleLLMUpdate(updates)
+              const p = e.target.value as LLMProvider
+              handleLLMUpdate({ 
+                provider: p, 
+                model: p !== 'custom' ? LLM_MODELS[p as keyof typeof LLM_MODELS][0] : '' 
+              })
             }}
             style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
           >
@@ -250,12 +182,12 @@ export const Popup = () => {
 
         <div style={{ marginBottom: '0.8rem' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Model</label>
-          {isCustomProvider ? (
+          {isCustom ? (
             <input 
               type="text"
               value={settings.llm.model || ''} 
               onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-              placeholder="Enter model name (e.g. gpt-4-turbo)"
+              placeholder="e.g. gpt-4-turbo"
               style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
             />
           ) : (
@@ -264,7 +196,7 @@ export const Popup = () => {
               onChange={(e) => handleLLMUpdate({ model: e.target.value })}
               style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
             >
-              {providerModels.map(m => <option key={m} value={m}>{m}</option>)}
+              {models.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           )}
         </div>
@@ -286,7 +218,7 @@ export const Popup = () => {
             type="text"
             value={settings.llm.baseUrl || ''} 
             onChange={(e) => handleLLMUpdate({ baseUrl: e.target.value })}
-            placeholder={LLM_DEFAULT_URLS[settings.llm.provider]}
+            placeholder={LLM_DEFAULT_URLS[provider]}
             style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
           />
         </div>
@@ -296,35 +228,21 @@ export const Popup = () => {
 
   const VocabTab = () => (
     <div style={{ animation: 'fadeIn 0.2s' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-        <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Saved Words ({vocabulary.length})</h3>
-      </div>
-      
+      <h3 style={{ fontSize: '0.95rem', marginBottom: '0.8rem' }}>Saved Words ({vocabulary.length})</h3>
       {vocabulary.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>
-          No words saved yet.
-        </p>
+        <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {vocabulary.slice(0, 15).map((item) => (
+          {vocabulary.slice(0, 20).map((item) => (
             <div key={item.word} style={{ 
-              fontSize: '0.85rem', 
-              padding: '8px', 
-              backgroundColor: '#f9f9f9', 
-              borderRadius: '4px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'start',
-              border: '1px solid #eee'
+              fontSize: '0.85rem', padding: '8px', backgroundColor: '#f9f9f9', 
+              borderRadius: '4px', display: 'flex', justifyContent: 'space-between', border: '1px solid #eee'
             }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: '#333' }}>{item.word}</div>
+                <div style={{ fontWeight: 'bold' }}>{item.word}</div>
                 <div style={{ fontSize: '0.75rem', color: '#666' }}>{formatIPA(item.ipa)} {item.meaning}</div>
               </div>
-              <button 
-                onClick={() => handleDeleteWord(item.word)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', padding: '4px' }}
-              >
+              <button onClick={() => removeWord(item.word)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb' }}>
                 <Trash2 size={14} />
               </button>
             </div>
@@ -336,69 +254,33 @@ export const Popup = () => {
 
   return (
     <div style={{ width: '300px', padding: '12px', fontFamily: 'sans-serif', maxHeight: '500px', overflowY: 'auto' }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.1rem', margin: 0, color: '#2c3e50' }}>Fluency</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
-            onClick={() => chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#888',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            title="Keyboard Shortcuts"
-          >
+        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Fluency</h2>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
             <Keyboard size={18} />
           </button>
-          <button 
-            onClick={toggleTabEnabled}
-            style={{
-              backgroundColor: tabEnabled ? '#4caf50' : '#e0e0e0',
-              color: tabEnabled ? 'white' : '#888',
-              border: 'none',
-              padding: '4px 8px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 'bold'
-            }}
-          >
+          <button onClick={toggleTabEnabled} style={{ backgroundColor: tabEnabled ? '#4caf50' : '#e0e0e0', color: tabEnabled ? 'white' : '#888', border: 'none', padding: '4px 8px', borderRadius: '12px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
             {tabEnabled ? 'ACTIVE' : 'OFF'}
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid #eee', marginBottom: '1rem' }}>
-        <button 
-          onClick={() => setActiveTab('general')}
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'general' ? '2px solid #4b8bf5' : 'none', color: activeTab === 'general' ? '#4b8bf5' : '#888', cursor: 'pointer' }}
-        >
-          <Settings size={16} />
-        </button>
-        <button 
-          onClick={() => setActiveTab('llm')}
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'llm' ? '2px solid #9c27b0' : 'none', color: activeTab === 'llm' ? '#9c27b0' : '#888', cursor: 'pointer' }}
-        >
-          <Cpu size={16} />
-        </button>
-        <button 
-          onClick={() => setActiveTab('vocab')}
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'vocab' ? '2px solid #ff9800' : 'none', color: activeTab === 'vocab' ? '#ff9800' : '#888', cursor: 'pointer' }}
-        >
-          <BookOpen size={16} />
-        </button>
+        {[
+          { id: 'general', icon: Settings },
+          { id: 'llm', icon: Cpu },
+          { id: 'vocab', icon: BookOpen }
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id as any)} style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === t.id ? '2px solid #4b8bf5' : 'none', color: activeTab === t.id ? '#4b8bf5' : '#888', cursor: 'pointer' }}>
+            <t.icon size={16} style={{ margin: '0 auto' }} />
+          </button>
+        ))}
       </div>
 
       {activeTab === 'general' && <GeneralTab />}
       {activeTab === 'llm' && <LLMTab />}
       {activeTab === 'vocab' && <VocabTab />}
-
     </div>
   )
 }

@@ -1,172 +1,97 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import pako from 'pako';
-import { WordExplanation, DictTag } from '../types';
+import { openDB, DBSchema, IDBPDatabase } from 'idb'
+import pako from 'pako'
+import { WordExplanation } from '../types'
 
-const DB_NAME = 'll_dictionary_db';
-const DB_VERSION = 3;
-const STORE_NAME = 'words';
-const USER_STORE = 'user_words';
-const META_STORE = 'meta';
-
-interface DictionaryDB extends DBSchema {
-  [STORE_NAME]: {
-    key: string; // word (lowercase)
-    value: WordExplanation;
-  };
-  [USER_STORE]: {
-    key: string; 
-    value: WordExplanation;
-  };
-  [META_STORE]: {
-    key: string;
-    value: { version: number; lastUpdated: number };
-  };
+const DB_NAME = 'll_dictionary_db'
+const DB_VERSION = 3
+const STORES = {
+  WORDS: 'words' as const,
+  USER: 'user_words' as const,
+  META: 'meta' as const
 }
 
-let dbPromise: Promise<IDBPDatabase<DictionaryDB>> | null = null;
+interface DictionaryDB extends DBSchema {
+  [STORES.WORDS]: { key: string; value: WordExplanation }
+  [STORES.USER]: { key: string; value: WordExplanation }
+  [STORES.META]: { key: string; value: any }
+}
 
-// Initialize Database
+let dbPromise: Promise<IDBPDatabase<DictionaryDB>> | null = null
+
 export const initDB = async () => {
-  if (dbPromise) return dbPromise;
-
+  if (dbPromise) return dbPromise
   dbPromise = openDB<DictionaryDB>(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'word' }); // word is unique key, but we store by lowercase manually
-      }
-      if (!db.objectStoreNames.contains(USER_STORE)) {
-        db.createObjectStore(USER_STORE, { keyPath: 'word' });
-      }
-      if (!db.objectStoreNames.contains(META_STORE)) {
-        db.createObjectStore(META_STORE);
-      }
+      if (!db.objectStoreNames.contains(STORES.WORDS)) db.createObjectStore(STORES.WORDS, { keyPath: 'word' })
+      if (!db.objectStoreNames.contains(STORES.USER)) db.createObjectStore(STORES.USER, { keyPath: 'word' })
+      if (!db.objectStoreNames.contains(STORES.META)) db.createObjectStore(STORES.META)
     },
-  });
-  return dbPromise;
-};
+  })
+  return dbPromise
+}
 
-// Check if we need to update
 export const checkAndUpdateDictionary = async () => {
-  const db = await initDB();
-  
-  // 1. Get local version
-  const localMeta = await db.get(META_STORE, 'version_info');
-  const localVersion = localMeta?.version || 0;
+  const db = await initDB()
+  const localVersion = (await db.get(STORES.META, 'version_info'))?.version || 0
 
   try {
-    // 2. Fetch remote version manifest
-    // Add cache-buster to ensure we get the latest version info
-    const versionUrl = chrome.runtime.getURL(`data/version.json?t=${Date.now()}`); 
-    const versionRes = await fetch(versionUrl);
-    if (!versionRes.ok) throw new Error('Failed to check version');
-    
-    const versionData = await versionRes.json();
-    const remoteVersion = versionData.version;
-
-    console.log(`Dictionary Version - Local: ${localVersion}, Remote: ${remoteVersion}`);
+    const res = await fetch(chrome.runtime.getURL(`data/version.json?t=${Date.now()}`))
+    if (!res.ok) return
+    const { version: remoteVersion } = await res.json()
 
     if (remoteVersion > localVersion) {
-      await downloadAndImportDictionary(db, remoteVersion);
-    } else {
-      console.log('Dictionary is up to date.');
+      await importDictionary(db, remoteVersion)
     }
   } catch (e) {
-    console.error('Dictionary update check failed:', e);
+    console.error('Dictionary update check failed:', e)
   }
-};
+}
 
-const downloadAndImportDictionary = async (db: IDBPDatabase<DictionaryDB>, newVersion: number) => {
-  console.time('DictDownload');
-  console.log('Starting dictionary download...');
-  
-  // 1. Download Gzipped JSON
-  const dictUrl = chrome.runtime.getURL(`data/dictionary-core.json.gz?t=${newVersion}`);
-  const response = await fetch(dictUrl);
-  const buffer = await response.arrayBuffer();
-  
-  console.log(`Downloaded ${buffer.byteLength} bytes. Decompressing...`);
-  
-  // 2. Decompress
-  const jsonString = pako.inflate(new Uint8Array(buffer), { to: 'string' });
-  const data: WordExplanation[] = JSON.parse(jsonString);
-  
-  console.log(`Decompressed. Importing ${data.length} entries into IndexedDB...`);
-  console.timeEnd('DictDownload');
+const importDictionary = async (db: IDBPDatabase<DictionaryDB>, version: number) => {
+  const res = await fetch(chrome.runtime.getURL(`data/dictionary-core.json.gz?t=${version}`))
+  const buffer = await res.arrayBuffer()
+  const data: WordExplanation[] = JSON.parse(pako.inflate(new Uint8Array(buffer), { to: 'string' }))
 
-  // 3. Bulk Put using Transaction
-  console.time('DictImport');
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  
-  // Clear old data first? Or overwrite? 
-  // Overwriting is safer for partial updates, but clearing ensures no stale data remains.
-  // For a full snapshot update, clear is better.
-  await store.clear();
+  const tx = db.transaction(STORES.WORDS, 'readwrite')
+  const store = tx.objectStore(STORES.WORDS)
+  await store.clear()
 
-  // Process in chunks to avoid blocking UI too much (though IDB is async)
-  const CHUNK_SIZE = 2000;
+  const CHUNK_SIZE = 2000
   for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    const chunk = data.slice(i, i + CHUNK_SIZE);
-    await Promise.all(chunk.map(item => {
-        // Ensure key is lowercase for case-insensitive lookup, 
-        // but preserve original casing in the value if needed
-        const key = item.word.toLowerCase();
-        return store.put({ ...item, word: key }); // Overwrite key with lowercase
-    }));
+    await Promise.all(data.slice(i, i + CHUNK_SIZE).map(item => 
+      store.put({ ...item, word: item.word.toLowerCase() })
+    ))
   }
   
-  await tx.done;
-  console.timeEnd('DictImport');
+  await tx.done
+  await db.put(STORES.META, { version, lastUpdated: Date.now() }, 'version_info')
+}
 
-  // 4. Update Version
-  await db.put(META_STORE, { version: newVersion, lastUpdated: Date.now() }, 'version_info');
-  console.log('Dictionary update complete!');
-};
-
-// Fast Lookup
 export const lookupWordInDB = async (word: string): Promise<WordExplanation | undefined> => {
-  const db = await initDB();
-  const lower = word.toLowerCase();
+  const db = await initDB()
+  const lower = word.toLowerCase()
   
-  // 1. Try User Store First
-  let result = await db.get(USER_STORE, lower);
-  if (result) return result;
-
-  // 2. Try exact match in Core Store
-  result = await db.get(STORE_NAME, lower);
+  let res = await db.get(STORES.USER, lower)
+  if (!res) res = await db.get(STORES.WORDS, lower)
   
-  // 3. Simple lemmatization fallbacks (naive)
-  if (!result) {
-     if (lower.endsWith('s')) result = await db.get(STORE_NAME, lower.slice(0, -1));
-     else if (lower.endsWith('ed')) result = await db.get(STORE_NAME, lower.slice(0, -2));
-     else if (lower.endsWith('ing')) result = await db.get(STORE_NAME, lower.slice(0, -3));
+  // Simple Lemmatization Fallbacks
+  if (!res) {
+    if (lower.endsWith('s')) res = await db.get(STORES.WORDS, lower.slice(0, -1))
+    else if (lower.endsWith('ed')) res = await db.get(STORES.WORDS, lower.slice(0, -2))
+    else if (lower.endsWith('ing')) res = await db.get(STORES.WORDS, lower.slice(0, -3))
   }
-  
-  return result;
-};
+  return res
+}
 
-// Bulk Lookup for Scanner (Optimization)
 export const batchLookupWords = async (words: string[]): Promise<Record<string, WordExplanation>> => {
-  const db = await initDB();
-  const results: Record<string, WordExplanation> = {};
+  const db = await initDB()
+  const results: Record<string, WordExplanation> = {}
   
-  // Parallelize requests across both stores
   await Promise.all(words.map(async (w) => {
-    const lower = w.toLowerCase();
-    
-    // Check User Store
-    const userEntry = await db.get(USER_STORE, lower);
-    if (userEntry) {
-      results[lower] = userEntry;
-      return;
-    }
-
-    // Check Core Store
-    const coreEntry = await db.get(STORE_NAME, lower);
-    if (coreEntry) {
-      results[lower] = coreEntry;
-    }
-  }));
+    const lower = w.toLowerCase()
+    const entry = (await db.get(STORES.USER, lower)) || (await db.get(STORES.WORDS, lower))
+    if (entry) results[lower] = entry
+  }))
   
-  return results;
-};
+  return results
+}

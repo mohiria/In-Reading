@@ -3,160 +3,103 @@ import ReactDOM from 'react-dom/client'
 import { scanAndHighlight, clearHighlights } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
-import { loadRemoteDictionary } from '../common/storage/dictionary-loader'
+import { initDictionaryService } from '../common/storage/dictionary-service'
 import { batchLookupWords } from '../common/storage/indexed-db'
 import { Overlay } from './components/Overlay'
 import { SelectionPopup } from './components/SelectionPopup'
 
-console.log('Language Learning Content script loaded')
-
-// Create Shadow DOM host
+/**
+ * Shadow DOM Setup for UI Isolation
+ */
 const host = document.createElement('div')
 host.id = 'll-extension-host'
-host.style.position = 'absolute'
-host.style.top = '0'
-host.style.left = '0'
-host.style.width = '0'
-host.style.height = '0'
-host.style.zIndex = '2147483647'
-host.style.pointerEvents = 'none'
+Object.assign(host.style, { position: 'absolute', top: 0, left: 0, width: 0, height: 0, zIndex: 2147483647, pointerEvents: 'none' })
 document.body.appendChild(host)
 
-const shadow = host.attachShadow({ mode: 'open' })
-const root = ReactDOM.createRoot(shadow)
-root.render(
-  <>
-    <Overlay />
-    <SelectionPopup />
-  </>
-)
+const root = ReactDOM.createRoot(host.attachShadow({ mode: 'open' }))
+root.render(<><Overlay /><SelectionPopup /></>)
 
-let tabEnabled = false;
-let isScanning = false;
+/**
+ * State & Scanning Logic
+ */
+let tabEnabled = false
+let isScanning = false
 
 const runScan = async (forceClear = false) => {
-  if (isScanning) return;
-  isScanning = true;
+  if (isScanning || !tabEnabled) {
+    if (!tabEnabled) clearHighlights()
+    return
+  }
+  isScanning = true
 
   try {
-    const settings = await getSettings()
-    
-    if (!tabEnabled) {
-      clearHighlights()
-      return
-    }
-    
-    const vocabList = await getVocabulary()
+    const [settings, vocabList] = await Promise.all([getSettings(), getVocabulary()])
     const vocabSet = new Set(vocabList.map(v => v.word.toLowerCase()))
-    
-    const vocabMap: Record<string, any> = {}
-    vocabList.forEach(v => { vocabMap[v.word.toLowerCase()] = v })
+    const vocabMap = Object.fromEntries(vocabList.map(v => [v.word.toLowerCase(), v]))
 
     await scanAndHighlight(
-      document.body, 
-      settings.proficiency, 
-      vocabSet, 
-      vocabMap, 
-      settings.pronunciation,
-      batchLookupWords,
-      forceClear, 
-      settings.showIPA
+      document.body, settings.proficiency, vocabSet, vocabMap, 
+      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA
     )
   } finally {
-    isScanning = false;
+    isScanning = false
   }
 }
 
-const init = async () => {
-  // 1. Get initial tab-specific state from background
-  try {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' });
-    tabEnabled = !!response?.enabled;
-  } catch (e) {
-    tabEnabled = false;
-  }
-
-  // 2. Initialize DB and trigger update check
-  await loadRemoteDictionary()
-  await runScan(true)
-}
-
-// Listen for messages from background (tab toggle)
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.type === 'TOGGLE_TAB_ENABLED') {
-    tabEnabled = request.enabled;
-    console.log('Tab translation state changed:', tabEnabled);
-    if (tabEnabled) {
-      runScan(true);
-    } else {
-      clearHighlights();
-    }
-  }
-});
-
-// Listen for settings changes
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
-  if (areaName === 'sync' && changes.settings) {
-    const oldSettings = changes.settings.oldValue
-    const newSettings = changes.settings.newValue
-    
-    if (!oldSettings || !newSettings) {
-      await runScan(true)
-      return
-    }
-
-    const needsRescan = 
-      oldSettings.proficiency !== newSettings.proficiency ||
-      oldSettings.pronunciation !== newSettings.pronunciation ||
-      oldSettings.showIPA !== newSettings.showIPA
-    
-    if (needsRescan && tabEnabled) {
-      await runScan(true)
-    }
-  } else if (areaName === 'local' && changes.vocabulary) {
-    if (tabEnabled) {
-      await runScan(true)
-    }
-  }
-})
-
+/**
+ * Mutation Observer for Dynamic Content
+ */
 const setupObserver = () => {
   let timeout: any = null
   const observer = new MutationObserver((mutations) => {
-    // Better detection of our own changes to prevent loops
     const isOurMutation = mutations.some(m => {
-      const checkNode = (node: Node) => {
-        if (node instanceof HTMLElement) {
-          return node.classList.contains('ll-word-container') || node.id === 'll-extension-host';
-        }
-        return node.parentElement?.classList.contains('ll-word-container') || false;
-      };
+      const check = (n: Node) => (n instanceof HTMLElement && (n.classList.contains('ll-word-container') || n.id === 'll-extension-host')) || n.parentElement?.classList.contains('ll-word-container')
+      return Array.from(m.addedNodes).some(check) || Array.from(m.removedNodes).some(check)
+    })
 
-      return (
-        Array.from(m.addedNodes).some(checkNode) ||
-        Array.from(m.removedNodes).some(checkNode)
-      );
-    });
-
-    if (isOurMutation) return;
-
+    if (isOurMutation) return
     if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(async () => {
-      if (tabEnabled) {
-         // Incremental scan: don't clear existing highlights
-         await runScan(false)
-      }
-    }, 1000)
+    timeout = setTimeout(() => tabEnabled && runScan(false), 1000)
   })
   observer.observe(document.body, { childList: true, subtree: true })
 }
 
+/**
+ * Initialization
+ */
+const init = async () => {
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' })
+    tabEnabled = !!res?.enabled
+  } catch {
+    tabEnabled = false
+  }
+
+  await initDictionaryService()
+  await runScan(true)
+  setupObserver()
+}
+
+chrome.runtime.onMessage.addListener((req) => {
+  if (req.type === 'TOGGLE_TAB_ENABLED') {
+    tabEnabled = req.enabled
+    tabEnabled ? runScan(true) : clearHighlights()
+  }
+})
+
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area === 'sync' && changes.settings) {
+    const { oldValue: oldS, newValue: newS } = changes.settings
+    const needsRescan = !oldS || !newS || oldS.proficiency !== newS.proficiency || 
+                        oldS.pronunciation !== newS.pronunciation || oldS.showIPA !== newS.showIPA
+    if (needsRescan && tabEnabled) runScan(true)
+  } else if (area === 'local' && changes.vocabulary && tabEnabled) {
+    runScan(true)
+  }
+})
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    init()
-    setupObserver()
-  })
+  document.addEventListener('DOMContentLoaded', init)
 } else {
   init()
-  setupObserver()
 }

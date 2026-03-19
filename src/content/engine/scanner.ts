@@ -1,8 +1,11 @@
 import { analyzeText } from '../../common/nlp/analyzer'
-import { ProficiencyLevel, SavedWord, WordExplanation } from '../../common/types'
-import { addToVocabulary } from '../../common/storage/vocabulary'
+import { ProficiencyLevel, WordExplanation } from '../../common/types'
 import { speak } from '../../common/utils/speech'
-import { formatIPA } from '../../common/utils/format'
+
+/**
+ * Constants & Configuration
+ */
+const REFRESH_GAP = 4 // Skip 3 paragraphs between translations (1 show, 3 hide)
 
 const IGNORE_TAGS = new Set([
   'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE',
@@ -12,36 +15,31 @@ const IGNORE_TAGS = new Set([
   'SVG', 'CANVAS', 'MATH', 'SUMMARY', 'DIALOG'
 ])
 
+const IGNORE_ROLES = `
+  nav, header, footer, aside, button, 
+  [role="navigation"], [role="button"], [role="menu"], 
+  [role="tablist"], [role="tab"], [role="tooltip"], 
+  [role="status"], [role="alert"], [aria-hidden="true"]
+`
+
+interface WordState {
+  totalDisplayed: number
+  lastBlockIndex: number
+}
+
+/**
+ * Smart node filtering logic
+ */
 const shouldIgnoreNode = (node: Node): boolean => {
   const parent = node.parentElement
   if (!parent) return true
-  
-  // 1. Basic tag blacklist
-  if (IGNORE_TAGS.has(parent.tagName)) return true
-  
-  // 2. Content editable check
-  if (parent.isContentEditable) return true
-
-  // 3. Structural UI elements & ARIA roles (Smart Filtering)
-  if (parent.closest(`
-    nav, header, footer, aside, button, 
-    [role="navigation"], [role="button"], [role="menu"], 
-    [role="tablist"], [role="tab"], [role="tooltip"], 
-    [role="status"], [role="alert"], [aria-hidden="true"]
-  `)) {
-    return true
-  }
-
-  return false
+  if (IGNORE_TAGS.has(parent.tagName) || parent.isContentEditable) return true
+  return !!parent.closest(IGNORE_ROLES)
 }
 
-// Helper to extract candidate words (3+ letters) from text nodes
-// This is a "pre-scan" to know what to query from DB
-const extractCandidates = (text: string): string[] => {
-  const matches = text.match(/\b[a-zA-Z]{3,}\b/g)
-  return matches || []
-}
-
+/**
+ * Main entry point for scanning and highlighting
+ */
 export const scanAndHighlight = async (
   root: HTMLElement | Document, 
   level: ProficiencyLevel, 
@@ -52,181 +50,80 @@ export const scanAndHighlight = async (
   shouldClear: boolean = false,
   showIPA: boolean = true
 ) => {
-  // 1. Collect all candidates first to minimize async gap
-  const allCandidateWords: Set<string> = new Set()
-  
-  // We use a temporary walker to find candidates without disturbing the DOM
-  const candidateWalker = document.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        if (shouldIgnoreNode(node)) {
-          return NodeFilter.FILTER_REJECT
-        }
-        return NodeFilter.FILTER_ACCEPT
-      }
-    }
-  )
+  if (shouldClear) clearHighlights(root)
 
+  // 1. Collect all candidates for batch lookup
+  const candidates: Set<string> = new Set()
+  const candidateWalker = createWalker(root, shouldIgnoreNode)
+  
   while (candidateWalker.nextNode()) {
-    const node = candidateWalker.currentNode as Text
-    if (node.nodeValue) {
-      extractCandidates(node.nodeValue).forEach(w => allCandidateWords.add(w))
-    }
+    const text = candidateWalker.currentNode.nodeValue || ''
+    const matches = text.match(/\b[a-zA-Z]{3,}\b/g)
+    matches?.forEach(w => candidates.add(w.toLowerCase()))
   }
 
-  // 2. Fetch all required dictionary data upfront
+  // 2. Batch fetch dictionary data
   let combinedDict = { ...userDict }
-  if (dbLookup && allCandidateWords.size > 0) {
-    try {
-      const missingWords = Array.from(allCandidateWords).filter(w => !userDict[w.toLowerCase()])
-      if (missingWords.length > 0) {
-        const dbResults = await dbLookup(missingWords)
-        combinedDict = { ...combinedDict, ...dbResults }
+  if (dbLookup && candidates.size > 0) {
+    const missing = Array.from(candidates).filter(w => !combinedDict[w])
+    if (missing.length > 0) {
+      const dbResults = await dbLookup(missing).catch(() => ({}))
+      combinedDict = { ...combinedDict, ...dbResults }
+    }
+  }
+
+  // 3. Identification and Reinforcement Logic
+  const walker = createWalker(root, (node) => {
+    if (shouldIgnoreNode(node)) return true
+    return !!(node.parentElement?.closest('.ll-word-container'))
+  })
+
+  const blockMap = new Map<Element, Text[]>()
+  const blocks: Element[] = []
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text
+    const block = node.parentElement?.closest('p, li') || 
+                  node.parentElement?.closest('div, section, article') || 
+                  node.parentElement
+    if (block) {
+      if (!blockMap.has(block)) {
+        blockMap.set(block, [])
+        blocks.push(block)
       }
-    } catch (e) {
-      console.error('Batch DB lookup failed', e)
+      blockMap.get(block)?.push(node)
     }
   }
 
-  // 3. Clear and re-scan in a single synchronous-like pass
-  if (shouldClear) {
-    clearHighlights(root)
-  }
+  const wordStateMap = new Map<string, WordState>()
 
-  // Now perform the actual processing
-  const walker = document.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        if (shouldIgnoreNode(node)) {
-          return NodeFilter.FILTER_REJECT
-        }
-        const parent = node.parentElement
-        if (parent?.closest('.ll-word-container')) {
-          return NodeFilter.FILTER_REJECT
-        }
-        return NodeFilter.FILTER_ACCEPT
-      }
-    }
-  )
-const nodesToProcess: Text[] = []
-while (walker.nextNode()) {
-  nodesToProcess.push(walker.currentNode as Text)
-}
-
-// Group nodes by their block-level parent to identify "paragraphs"
-const blockMap = new Map<Element, Text[]>()
-const blocks: Element[] = []
-
-nodesToProcess.forEach(node => {
-  // Refined block identification: prioritize actual text blocks like P and LI
-  let block = node.parentElement?.closest('p, li')
-  
-  // If no P or LI, fall back to the nearest block-level container
-  if (!block) {
-    block = node.parentElement?.closest('div, section, article') || node.parentElement
-  }
-
-  if (block) {
-    if (!blockMap.has(block)) {
-      blockMap.set(block, [])
-      blocks.push(block)
-    }
-    blockMap.get(block)?.push(node)
-  }
-})
-// Global state to track memory reinforcement
-const wordStateMap = new Map<string, { totalDisplayed: number, lastBlockIndex: number }>()
-const REFRESH_GAP = 4 // If shown in Block 0, skip Block 1, 2 & 3, show again in Block 4
-
-blocks.forEach((block, blockIndex) => {
-// ... rest of the loop
-
-  const nodes = blockMap.get(block) || []
-  const seenInBlock = new Set<string>()
-
-  nodes.forEach(node => {
-    processTextNode(
-      node, 
-      level, 
-      vocabulary, 
-      combinedDict, 
-      pronunciation, 
-      showIPA, 
-      wordStateMap, 
-      blockIndex, 
-      seenInBlock,
-      REFRESH_GAP
-    )
-  })
-})
-}
-
-export const clearHighlights = (root: HTMLElement | Document = document) => {
-// ... rest of the file
-
-  const highlights = root.querySelectorAll('.ll-word-container')
-  if (highlights.length === 0) return
-
-  const parentsToNormalize = new Set<Node>()
-
-  highlights.forEach(el => {
-    const wordSpan = el.querySelector('.ll-word')
-    const parent = el.parentNode
-    if (parent) {
-      parent.replaceChild(document.createTextNode(wordSpan?.textContent || ''), el)
-      parentsToNormalize.add(parent)
-    }
-  })
-
-  // Normalize only once per parent to prevent jitter and excessive reflows
-  parentsToNormalize.forEach(parent => {
-    parent.normalize()
+  blocks.forEach((block, blockIndex) => {
+    const seenInBlock = new Set<string>()
+    blockMap.get(block)?.forEach(node => {
+      processTextNode(node, level, vocabulary, combinedDict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock)
+    })
   })
 }
 
-export const unhighlightWord = (word: string, root: HTMLElement | Document = document) => {
-  const lowerWord = word.toLowerCase()
-  const highlights = root.querySelectorAll(`.ll-word-container[data-word="${lowerWord}"]`)
-  if (highlights.length === 0) return
-
-  const parentsToNormalize = new Set<Node>()
-
-  highlights.forEach(el => {
-    const wordSpan = el.querySelector('.ll-word')
-    const parent = el.parentNode
-    if (parent) {
-      parent.replaceChild(document.createTextNode(wordSpan?.textContent || ''), el)
-      parentsToNormalize.add(parent)
-    }
-  })
-
-  parentsToNormalize.forEach(parent => {
-    parent.normalize()
-  })
-}
-
+/**
+ * Process a single text node with Spaced Reinforcement
+ */
 const processTextNode = (
   node: Text, 
   level: ProficiencyLevel, 
   vocabulary: Set<string>,
-  dynamicDict: Record<string, WordExplanation>,
+  dict: Record<string, WordExplanation>,
   pronunciation: 'UK' | 'US',
-  showIPA: boolean = true,
-  wordStateMap: Map<string, { totalDisplayed: number, lastBlockIndex: number }> = new Map(),
-  blockIndex: number = 0,
-  seenInBlock: Set<string> = new Set(),
-  refreshGap: number = 4
+  showIPA: boolean,
+  stateMap: Map<string, WordState>,
+  blockIndex: number,
+  seenInBlock: Set<string>
 ) => {
   const text = node.nodeValue
-  if (!text || !text.trim()) return
+  if (!text?.trim()) return
 
-  const matches = analyzeText(text, level, vocabulary, dynamicDict, pronunciation)
-  
-  if (matches.length === 0) return // Skip if no matches
+  const matches = analyzeText(text, level, vocabulary, dict, pronunciation)
+  if (matches.length === 0) return
 
   const fragment = document.createDocumentFragment()
   let lastIndex = 0
@@ -236,91 +133,22 @@ const processTextNode = (
       fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
     }
 
-    const lowerWord = match.word.toLowerCase()
+    const word = match.word
+    const lowerWord = word.toLowerCase()
+    const state = stateMap.get(lowerWord) || { totalDisplayed: 0, lastBlockIndex: -1 }
     
-    // Spaced Reinforcement Logic
-    const state = wordStateMap.get(lowerWord) || { totalDisplayed: 0, lastBlockIndex: -1 }
     const isFirstInBlock = !seenInBlock.has(lowerWord)
+    const hasMetGap = state.lastBlockIndex === -1 || (blockIndex - state.lastBlockIndex >= REFRESH_GAP)
     
-    const hasMetGap = state.lastBlockIndex === -1 || (blockIndex - state.lastBlockIndex >= refreshGap)
-    const shouldShowTranslation = isFirstInBlock && hasMetGap
-    
-    if (shouldShowTranslation) {
-      state.totalDisplayed += 1
+    if (isFirstInBlock && hasMetGap) {
+      state.totalDisplayed++
       state.lastBlockIndex = blockIndex
-      wordStateMap.set(lowerWord, state)
-      
-      const container = document.createElement('span')
-      container.className = 'll-word-container'
-      container.setAttribute('data-word', lowerWord)
-      container.setAttribute('contenteditable', 'false')
-      
-      container.style.backgroundColor = 'rgba(75, 139, 245, 0)' 
-      container.style.borderRadius = '3px'
-      container.style.padding = '1px 2px'
-      container.style.margin = '0 1px'
-      container.style.display = 'inline' 
-      container.style.transition = 'all 0.4s ease'
-      container.style.cursor = 'pointer'
-      container.style.borderBottom = '1px solid transparent'
-
-      setTimeout(() => {
-        container.style.backgroundColor = 'rgba(75, 139, 245, 0.15)'
-        container.style.borderBottom = '1px solid rgba(75, 139, 245, 0.3)'
-      }, 10)
-
-      const span = document.createElement('span')
-      span.textContent = match.word
-      span.className = 'll-word'
-      span.style.fontWeight = 'bold'
-      span.style.color = 'inherit'
-      span.onclick = (e) => e.stopPropagation()
-      container.appendChild(span)
-
-      const voiceBtn = document.createElement('span')
-      voiceBtn.setAttribute('aria-hidden', 'true')
-      voiceBtn.style.userSelect = 'none'
-      voiceBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; opacity: 0.6;">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-        </svg>
-      `
-      voiceBtn.style.marginLeft = '2px'
-      voiceBtn.style.display = 'inline-flex'
-      voiceBtn.style.alignItems = 'center'
-      voiceBtn.title = `Listen (${pronunciation})`
-      voiceBtn.onclick = (e) => {
-        e.stopPropagation()
-        speak(match.word, pronunciation === 'UK' ? 'en-GB' : 'en-US')
-      }
-      container.appendChild(voiceBtn)
-
-      const translation = document.createElement('span')
-      translation.className = 'll-translation'
-      translation.setAttribute('aria-hidden', 'true')
-      translation.style.userSelect = 'none'
-      
-      const finalExplanation = match.explanation
-      const ipaLabel = pronunciation === 'UK' ? 'UK ' : 'US '
-      const ipaPart = (showIPA && finalExplanation.ipa) ? `${ipaLabel}${finalExplanation.ipa}` : ''
-      const separator = ipaPart ? ' · ' : ''
-      translation.textContent = ` (${ipaPart}${separator}${finalExplanation.meaning})`
-      
-      translation.style.color = '#666' 
-      translation.style.fontSize = '0.8em'
-      translation.style.marginLeft = '4px'
-      translation.style.fontWeight = 'normal'
-      translation.style.opacity = '0.7' 
-      translation.style.whiteSpace = 'nowrap' 
-      
-      container.appendChild(translation)
-      fragment.appendChild(container)
+      stateMap.set(lowerWord, state)
+      fragment.appendChild(createWordContainer(match, pronunciation, showIPA))
     } else {
-      // If no translation needed, just insert the plain text
-      fragment.appendChild(document.createTextNode(match.word))
+      fragment.appendChild(document.createTextNode(word))
     }
-    
+
     seenInBlock.add(lowerWord)
     lastIndex = match.index + match.length
   })
@@ -328,6 +156,129 @@ const processTextNode = (
   if (lastIndex < text.length) {
     fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
   }
-
   node.replaceWith(fragment)
+}
+
+/**
+ * Creates the interactive translation UI element
+ */
+const createWordContainer = (match: any, pronunciation: string, showIPA: boolean): HTMLElement => {
+  const container = document.createElement('span')
+  container.className = 'll-word-container'
+  container.setAttribute('data-word', match.word.toLowerCase())
+  container.setAttribute('contenteditable', 'false')
+  
+  // Base Styles
+  Object.assign(container.style, {
+    backgroundColor: 'rgba(75, 139, 245, 0)',
+    borderRadius: '3px',
+    padding: '1px 2px',
+    margin: '0 1px',
+    display: 'inline',
+    transition: 'all 0.4s ease',
+    cursor: 'pointer',
+    borderBottom: '1px solid transparent'
+  })
+
+  // Fade-in animation
+  setTimeout(() => {
+    container.style.backgroundColor = 'rgba(75, 139, 245, 0.15)'
+    container.style.borderBottom = '1px solid rgba(75, 139, 245, 0.3)'
+  }, 10)
+
+  // Word Span
+  const span = document.createElement('span')
+  span.className = 'll-word'
+  span.textContent = match.word
+  span.style.fontWeight = 'bold'
+  span.style.color = 'inherit'
+  span.onclick = (e) => e.stopPropagation()
+  container.appendChild(span)
+
+  // Voice Icon
+  const voiceBtn = document.createElement('span')
+  voiceBtn.setAttribute('aria-hidden', 'true')
+  voiceBtn.style.userSelect = 'none'
+  voiceBtn.style.marginLeft = '2px'
+  voiceBtn.style.display = 'inline-flex'
+  voiceBtn.style.alignItems = 'center'
+  voiceBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; opacity: 0.6;">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>`
+  voiceBtn.onclick = (e) => {
+    e.stopPropagation()
+    speak(match.word, pronunciation === 'UK' ? 'en-GB' : 'en-US')
+  }
+  container.appendChild(voiceBtn)
+
+  // Translation Span
+  const translation = document.createElement('span')
+  translation.className = 'll-translation'
+  translation.setAttribute('aria-hidden', 'true')
+  translation.style.userSelect = 'none'
+  
+  const exp = match.explanation
+  const ipaLabel = pronunciation === 'UK' ? 'UK ' : 'US '
+  const ipaPart = (showIPA && exp.ipa) ? `${ipaLabel}${exp.ipa}` : ''
+  const separator = ipaPart ? ' · ' : ''
+  
+  translation.textContent = ` (${ipaPart}${separator}${exp.meaning})`
+  Object.assign(translation.style, {
+    color: '#666',
+    fontSize: '0.8em',
+    marginLeft: '4px',
+    fontWeight: 'normal',
+    opacity: '0.7',
+    whiteSpace: 'nowrap'
+  })
+  
+  container.appendChild(translation)
+  return container
+}
+
+/**
+ * Utility: Clear highlights
+ */
+export const clearHighlights = (root: HTMLElement | Document = document) => {
+  const highlights = root.querySelectorAll('.ll-word-container')
+  const parents = new Set<ParentNode>()
+
+  highlights.forEach(el => {
+    const wordSpan = el.querySelector('.ll-word')
+    const parent = el.parentNode
+    if (parent) {
+      parent.replaceChild(document.createTextNode(wordSpan?.textContent || ''), el)
+      parents.add(parent as ParentNode)
+    }
+  })
+  parents.forEach(p => p.normalize())
+}
+
+/**
+ * Utility: Unhighlight specific word
+ */
+export const unhighlightWord = (word: string, root: HTMLElement | Document = document) => {
+  const highlights = root.querySelectorAll(`.ll-word-container[data-word="${word.toLowerCase()}"]`)
+  const parents = new Set<ParentNode>()
+
+  highlights.forEach(el => {
+    const wordSpan = el.querySelector('.ll-word')
+    const parent = el.parentNode
+    if (parent) {
+      parent.replaceChild(document.createTextNode(wordSpan?.textContent || ''), el)
+      parents.add(parent as ParentNode)
+    }
+  })
+  parents.forEach(p => p.normalize())
+}
+
+/**
+ * Helper: Create standard TreeWalker
+ */
+const createWalker = (root: HTMLElement | Document, rejectFn: (node: Node) => boolean) => {
+  return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => rejectFn(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+  })
 }

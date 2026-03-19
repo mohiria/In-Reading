@@ -1,6 +1,6 @@
-import { isDifficultyAbove, lookupWord, USER_LEVEL_RANK, TAG_LEVEL_MAP } from './dictionary'
+import { TAG_LEVEL_MAP, USER_LEVEL_RANK } from './dictionary'
 import { ProficiencyLevel, WordExplanation } from '../types'
-import { formatIPA } from '../utils/format'
+import { getPreferredIPA } from '../utils/format'
 
 export interface IdentifiedWord {
   word: string
@@ -13,7 +13,7 @@ export const analyzeText = (
   text: string, 
   userLevel: ProficiencyLevel = 'CEFR_A1', 
   vocabulary: Set<string> = new Set(),
-  dynamicDict: Record<string, WordExplanation> = {},
+  dict: Record<string, WordExplanation> = {},
   pronunciation: 'UK' | 'US' = 'US'
 ): IdentifiedWord[] => {
   const results: IdentifiedWord[] = []
@@ -24,26 +24,13 @@ export const analyzeText = (
     const word = match[0]
     const lowerWord = word.toLowerCase()
     
-    // Priority: Dynamic/IndexedDB Dict > Built-in (which is empty now)
-    let explanation = dynamicDict[lowerWord] || lookupWord(word, pronunciation)
-
+    let explanation = dict[lowerWord]
     if (!explanation) continue
     
-    // Create a copy to avoid mutating the source dict
-    explanation = { ...explanation }
-
-    // Ensure we have the correct IPA for the current pronunciation preference
-    const pref = pronunciation.toUpperCase()
-    const ipa_uk = explanation.ipa_uk
-    const ipa_us = explanation.ipa_us
-
-    if (pref === 'UK' && ipa_uk) {
-      explanation.ipa = formatIPA(ipa_uk)
-    } else if (pref === 'US' && ipa_us) {
-      explanation.ipa = formatIPA(ipa_us)
-    } else if (!explanation.ipa) {
-      // Fallback if regional IPA is missing but general ipa exists
-      explanation.ipa = formatIPA(explanation.ipa || ipa_us || ipa_uk || '')
+    // Create a copy and ensure preferred IPA is set
+    explanation = { 
+      ...explanation,
+      ipa: getPreferredIPA(explanation, pronunciation)
     }
 
     const isSavedWord = vocabulary.has(lowerWord)

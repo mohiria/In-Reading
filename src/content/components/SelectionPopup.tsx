@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react'
-import { addToVocabulary, getVocabulary, removeFromVocabulary } from '../../common/storage/vocabulary'
-import { getSettings } from '../../common/storage/settings'
+import { useSettings } from '../../common/hooks/useSettings'
+import { useVocabulary } from '../../common/hooks/useVocabulary'
 import { lookupWordInDB } from '../../common/storage/indexed-db'
-import { WordExplanation, UserSettings } from '../../common/types'
+import { WordExplanation } from '../../common/types'
 import { BookOpen, Plus, Trash2, Volume2 } from 'lucide-react'
 import { speak } from '../../common/utils/speech'
-import { formatIPA } from '../../common/utils/format'
+import { getPreferredIPA } from '../../common/utils/format'
 
 export const SelectionPopup = () => {
-  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const { settings } = useSettings()
+  const { vocabulary, addWord, removeWord } = useVocabulary()
   const [loading, setLoading] = useState(false)
   const [tabEnabled, setTabEnabled] = useState(false)
   const [selection, setSelection] = useState<{
@@ -19,40 +20,21 @@ export const SelectionPopup = () => {
   } | null>(null)
 
   useEffect(() => {
-    getSettings().then(setSettings)
-
-    // Initial check for tab state
     const checkState = () => {
-      chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (response) => {
-        setTabEnabled(!!response?.enabled)
-      })
+      chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (res) => setTabEnabled(!!res?.enabled))
     }
     checkState()
 
-    const handleStorageChange = (changes: any, areaName: string) => {
-      if (areaName === 'sync' && changes.settings) {
-        setSettings(changes.settings.newValue)
+    const handleMessage = (req: any) => {
+      if (req.type === 'TOGGLE_TAB_ENABLED') {
+        setTabEnabled(req.enabled)
+        if (!req.enabled) setSelection(null)
       }
     }
 
-    const handleMessage = (request: any) => {
-      if (request.type === 'TOGGLE_TAB_ENABLED') {
-        setTabEnabled(request.enabled)
-        if (!request.enabled) {
-          setSelection(null)
-          setLoading(false)
-        }
-      }
-    }
-
-    chrome.storage.onChanged.addListener(handleStorageChange)
     chrome.runtime.onMessage.addListener(handleMessage)
-    
-    // Periodically re-sync state just in case
     const interval = setInterval(checkState, 2000)
-
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange)
       chrome.runtime.onMessage.removeListener(handleMessage)
       clearInterval(interval)
     }
@@ -60,292 +42,112 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const handleSelection = async () => {
-      // Re-verify enabled state from background to be absolutely sure
-      const response = await chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' })
-      const isEnabled = !!response?.enabled
-      
-      // Update local state for rendering consistency
-      if (isEnabled !== tabEnabled) {
-        setTabEnabled(isEnabled)
-      }
-
-      if (!isEnabled) return
+      if (!tabEnabled) return
 
       const sel = window.getSelection()
-      if (!sel || sel.isCollapsed) {
+      const text = sel?.toString().trim()
+      if (!sel || sel.isCollapsed || !text || text.length > 50 || !/[a-zA-Z]/.test(text)) {
         setSelection(null)
         return
       }
 
-      const text = sel.toString().trim()
-      if (!text || text.length > 50 || !/[a-zA-Z]/.test(text)) {
-        setSelection(null)
-        return
-      }
-
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      
-      let contextSentence = text
-      if (sel.anchorNode && sel.anchorNode.textContent) {
-        const fullText = sel.anchorNode.textContent
-        const start = Math.max(0, fullText.lastIndexOf('.', sel.anchorOffset) + 1)
-        const end = fullText.indexOf('.', sel.focusOffset)
-        contextSentence = fullText.substring(start, end === -1 ? undefined : end + 1).trim()
-      }
-
-      const currentSettings = await getSettings()
+      const rect = sel.getRangeAt(0).getBoundingClientRect()
       const localExp = await lookupWordInDB(text)
-      const vocab = await getVocabulary()
-      const isSaved = vocab.some(v => v.word.toLowerCase() === text.toLowerCase())
+      const isSaved = vocabulary.some(v => v.word.toLowerCase() === text.toLowerCase())
 
-      if (isSaved) {
-        const savedItem = vocab.find(v => v.word.toLowerCase() === text.toLowerCase())
-        const processedSavedItem = { ...savedItem! }
-        
-        const dbEntry = localExp
-        const ipa_uk = processedSavedItem.ipa_uk || dbEntry?.ipa_uk
-        const ipa_us = processedSavedItem.ipa_us || dbEntry?.ipa_us
-
-        if (currentSettings.pronunciation === 'UK' && ipa_uk) {
-          processedSavedItem.ipa = formatIPA(ipa_uk)
-        } else if (currentSettings.pronunciation === 'US' && ipa_us) {
-          processedSavedItem.ipa = formatIPA(ipa_us)
-        } else {
-          processedSavedItem.ipa = formatIPA(processedSavedItem.ipa)
-        }
-        
-        setSelection({ text, rect, explanation: processedSavedItem, isSaved: true })
+      if (isSaved || localExp) {
+        const baseExp = isSaved ? vocabulary.find(v => v.word.toLowerCase() === text.toLowerCase())! : localExp!
+        const explanation = { ...baseExp, ipa: getPreferredIPA(baseExp, settings?.pronunciation || 'US') }
+        setSelection({ text, rect, explanation, isSaved })
         return
       }
 
-      if (localExp) {
-        const finalExp = { ...localExp }
-        if (currentSettings.pronunciation === 'UK' && finalExp.ipa_uk) {
-          finalExp.ipa = formatIPA(finalExp.ipa_uk)
-        } else if (currentSettings.pronunciation === 'US' && finalExp.ipa_us) {
-          finalExp.ipa = formatIPA(finalExp.ipa_us)
-        } else {
-          finalExp.ipa = formatIPA(finalExp.ipa)
-        }
-
-        setSelection({ text, rect, explanation: finalExp, isSaved: false })
-        return
-      }
-
-      // If not in local, show loading and fetch
+      // Online lookup
       setSelection({ text, rect, explanation: null, isSaved: false })
       setLoading(true)
       
       chrome.runtime.sendMessage({ 
-        type: 'TRANSLATE_WORD', 
-        text, 
-        context: contextSentence,
-        settings: currentSettings 
-      }, (response) => {
+        type: 'TRANSLATE_WORD', text, context: text, settings 
+      }, (res) => {
         setLoading(false)
-        if (response && response.success) {
-          setSelection(prev => prev ? {
-            ...prev,
-            explanation: response.data
-          } : null)
-        } else {
-           setSelection(prev => prev ? {
-             ...prev,
-             explanation: { word: text, meaning: 'Error: ' + (response?.error || 'Unknown'), ipa: '', source: 'Error' }
-           } : null)
+        if (res?.success) {
+          setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
         }
       })
     }
 
     const onMouseUp = (e: MouseEvent) => {
-      const host = document.getElementById('ll-extension-host')
-      if (host && (e.target === host || e.composedPath().includes(host))) {
-        return
-      }
-      
+      if (document.getElementById('ll-extension-host')?.contains(e.target as Node)) return
       setTimeout(handleSelection, 10)
     }
 
     document.addEventListener('mouseup', onMouseUp)
     return () => document.removeEventListener('mouseup', onMouseUp)
-  }, [tabEnabled])
+  }, [tabEnabled, vocabulary, settings])
 
   if (!selection && !loading) return null
 
-  const handleToggleVocab = async (e: React.MouseEvent) => {
+  const onToggleVocab = async (e: React.MouseEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-    if (!selection) return
-
+    if (!selection?.explanation) return
     if (selection.isSaved) {
-      await removeFromVocabulary(selection.text)
+      await removeWord(selection.text)
     } else {
-      await addToVocabulary({
-        ...selection.explanation!,
-        timestamp: Date.now(),
-        sourceUrl: window.location.href
-      })
+      await addWord({ ...selection.explanation, timestamp: Date.now(), sourceUrl: window.location.href })
     }
-    const vocab = await getVocabulary()
-    const isSaved = vocab.some(v => v.word.toLowerCase() === selection.text.toLowerCase())
-    setSelection(prev => prev ? { ...prev, isSaved } : null)
     setTimeout(() => setSelection(null), 300)
   }
 
   const calculatePosition = () => {
     if (!selection) return {}
-    
     const { rect } = selection
-    const popupHeight = 150 // Estimated max height
-    const popupWidth = 220
-    
-    const spaceBelow = window.innerHeight - rect.bottom
-    const showAbove = spaceBelow < popupHeight && rect.top > popupHeight
-
-    let top = showAbove ? rect.top - popupHeight - 10 : rect.bottom + 10
-    let left = rect.left + rect.width / 2
-
-    // Boundary checks for horizontal
-    const halfWidth = popupWidth / 2
-    if (left - halfWidth < 10) left = halfWidth + 10
-    if (left + halfWidth > window.innerWidth - 10) left = window.innerWidth - halfWidth - 10
-
+    let top = rect.bottom + 10
+    if (window.innerHeight - rect.bottom < 150 && rect.top > 150) top = rect.top - 160
     return {
       top: Math.max(10, top),
-      left,
+      left: Math.max(110, Math.min(window.innerWidth - 110, rect.left + rect.width / 2)),
       transform: 'translateX(-50%)',
       position: 'fixed' as const
     }
   }
 
-  if (!selection) return null
-
   const style: React.CSSProperties = {
     ...calculatePosition(),
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-    padding: '12px',
-    zIndex: 2147483647,
-    fontFamily: 'sans-serif',
-    border: '1px solid #ddd',
-    minWidth: '220px',
-    pointerEvents: 'auto',
-    color: '#333',
-    userSelect: 'none'
+    backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+    padding: '12px', zIndex: 2147483647, fontFamily: 'sans-serif', border: '1px solid #ddd',
+    minWidth: '220px', color: '#333', userSelect: 'none'
   }
 
+  if (!selection) return null
+
   return (
-    <div style={style} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+    <div style={style} onMouseDown={e => e.stopPropagation()}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
         <BookOpen size={16} color="#4b8bf5" />
         <span style={{ fontWeight: 'bold' }}>{selection.text}</span>
-        <button 
-          onClick={(e) => { 
-            e.stopPropagation(); 
-            speak(selection.text, settings?.pronunciation === 'UK' ? 'en-GB' : 'en-US') 
-          }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#666', padding: '2px' }}
-          title="Listen"
-        >
+        <button onClick={() => speak(selection.text, settings?.pronunciation === 'UK' ? 'en-GB' : 'en-US')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           <Volume2 size={14} />
         </button>
-        {selection.explanation?.source && (
-          <span style={{ fontSize: '10px', backgroundColor: '#eee', padding: '2px 4px', borderRadius: '4px', color: '#999', marginLeft: 'auto' }}>
-            {selection.explanation.source}
-          </span>
-        )}
+        {selection.explanation?.source && <span style={{ fontSize: '10px', backgroundColor: '#eee', padding: '2px 4px', borderRadius: '4px', marginLeft: 'auto' }}>{selection.explanation.source}</span>}
       </div>
 
-      {loading ? (
-        <div style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', padding: '10px' }}>
-          Translating...
-        </div>
-      ) : selection.explanation ? (
+      {loading ? <div style={{ textAlign: 'center', padding: '10px', color: '#999' }}>Translating...</div> : selection.explanation && (
         <>
           <div style={{ fontSize: '0.9rem', marginBottom: '6px' }}>
-            {selection.explanation.ipa && (
-              <span style={{ 
-                color: '#1a73e8', 
-                marginRight: '8px', 
-                backgroundColor: '#f0f4ff', 
-                padding: '2px 6px', 
-                borderRadius: '4px',
-                fontSize: '0.8rem'
-              }}>
-                {settings?.pronunciation === 'UK' ? 'UK' : 'US'} {formatIPA(selection.explanation.ipa)}
-              </span>
-            )}
-            {selection.explanation.cefr && (
-              <span style={{ 
-                marginRight: '8px', 
-                fontSize: '0.75rem', 
-                backgroundColor: '#e8f0fe', 
-                color: '#1a73e8', 
-                padding: '1px 4px', 
-                borderRadius: '4px',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                {selection.explanation.cefr}
-              </span>
-            )}
+            {selection.explanation.ipa && <span style={{ color: '#1a73e8', marginRight: '8px', backgroundColor: '#f0f4ff', padding: '2px 6px', borderRadius: '4px' }}>{selection.explanation.ipa}</span>}
+            {selection.explanation.cefr && <span style={{ fontSize: '0.75rem', backgroundColor: '#e8f0fe', color: '#1a73e8', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>{selection.explanation.cefr.toUpperCase()}</span>}
           </div>
-
-          {!selection.explanation.definitions || selection.explanation.definitions.length <= 1 ? (
-            <div style={{ fontSize: '0.9rem' }}>
-                          {selection.explanation.type && (!selection.explanation.definitions || selection.explanation.definitions.length <= 1) && (
-                            <span style={{ fontStyle: 'italic', color: '#888', marginRight: '8px', fontSize: '0.8rem' }}>
-                              {selection.explanation.type}
-                            </span>
-                          )}              <span style={{ fontWeight: 500 }}>{selection.explanation.meaning}</span>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.9rem' }}>
-              {selection.explanation.definitions.map((def, idx) => (
-                <div key={idx}>
-                   <span style={{ fontStyle: 'italic', color: '#888', marginRight: '8px', fontSize: '0.8rem' }}>{def.type}</span>
-                   <span style={{ fontWeight: 500 }}>{def.translation}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={handleToggleVocab}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              width: '100%',
-              padding: '6px',
-              backgroundColor: selection.isSaved ? '#ff4d4f' : '#4b8bf5',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              marginTop: '8px',
-              transition: 'background-color 0.2s'
-            }}
-          >
-            {selection.isSaved ? (
-              <>
-                <Trash2 size={14} /> Remove from Vocabulary
-              </>
-            ) : (
-              <>
-                <Plus size={14} /> Add to Vocabulary
-              </>
-            )}
+          <div style={{ fontSize: '0.9rem' }}>
+            {selection.explanation.definitions?.length ? (
+              selection.explanation.definitions.map((def, idx) => (
+                <div key={idx}><span style={{ fontStyle: 'italic', color: '#888', marginRight: '8px' }}>{def.type}</span>{def.translation}</div>
+              ))
+            ) : <div>{selection.explanation.meaning}</div>}
+          </div>
+          <button onClick={onToggleVocab} style={{ width: '100%', padding: '6px', backgroundColor: selection.isSaved ? '#ff4d4f' : '#4b8bf5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            {selection.isSaved ? <><Trash2 size={14} /> Remove</> : <><Plus size={14} /> Add to Vocabulary</>}
           </button>
         </>
-      ) : (
-        <div style={{ fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>
-          Translation failed.
-        </div>
       )}
     </div>
   )
