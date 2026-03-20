@@ -74,7 +74,7 @@ const setupObserver = () => {
 }
 
 /**
- * Initialization
+ * Initialization & Navigation Handling
  */
 const init = async () => {
   try {
@@ -85,8 +85,43 @@ const init = async () => {
   }
 
   await initDictionaryService()
-  await runScan(true)
+  if (tabEnabled) {
+    await runScan(true)
+  }
   setupObserver()
+  setupNavigationListener()
+}
+
+/**
+ * Handle SPA Navigations (URL changes without full reload)
+ */
+const setupNavigationListener = () => {
+  let lastUrl = location.href
+  
+  const checkUrl = () => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href
+      if (tabEnabled) {
+        console.log('In Reading: Navigation detected, re-scanning...')
+        runScan(true)
+      }
+    }
+  }
+
+  window.addEventListener('popstate', checkUrl)
+  
+  // Intercept programmatic navigation (common in SPAs like BBC, YouTube, etc.)
+  const originalPushState = history.pushState
+  history.pushState = function(...args) {
+    originalPushState.apply(this, args)
+    setTimeout(checkUrl, 100)
+  }
+  
+  const originalReplaceState = history.replaceState
+  history.replaceState = function(...args) {
+    originalReplaceState.apply(this, args)
+    setTimeout(checkUrl, 100)
+  }
 }
 
 chrome.runtime.onMessage.addListener((req) => {
