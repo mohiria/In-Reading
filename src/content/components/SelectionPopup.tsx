@@ -112,43 +112,78 @@ export const SelectionPopup = () => {
 
   const style: React.CSSProperties = {
     ...calculatePosition(),
-    backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+    backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
     padding: '12px', zIndex: 2147483647, fontFamily: 'sans-serif', border: '1px solid #ddd',
-    minWidth: '220px', color: '#333', userSelect: 'none'
+    minWidth: '220px', maxWidth: '320px', color: '#333', userSelect: 'none',
+    boxSizing: 'border-box'
   }
 
   if (!selection) return null
 
   return (
     <div style={style} onMouseDown={e => e.stopPropagation()}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <BookOpen size={16} color="#4b8bf5" />
-        <span style={{ fontWeight: 'bold' }}>{selection.text}</span>
-        <VoiceIcon 
-          word={selection.text} 
-          pronunciation={settings?.pronunciation || 'US'} 
-          size={16} 
-        />
-        {selection.explanation?.source && <span style={{ fontSize: '10px', backgroundColor: '#eee', padding: '2px 4px', borderRadius: '4px', marginLeft: 'auto' }}>{selection.explanation.source}</span>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <BookOpen size={16} color="#4b8bf5" />
+          <span style={{ fontWeight: 'bold', fontSize: '1.05rem', wordBreak: 'break-word' }}>{selection.text}</span>
+          <VoiceIcon 
+            word={selection.text} 
+            pronunciation={settings?.pronunciation || 'US'} 
+            size={16} 
+          />
+        </div>
+        {selection.explanation?.source && (
+          <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px', border: '1px solid #eee' }}>
+            {selection.explanation.source}
+          </span>
+        )}
       </div>
 
       {loading ? <div style={{ textAlign: 'center', padding: '10px', color: '#999' }}>Translating...</div> : selection.explanation && (
-        <>
-          <div style={{ fontSize: '0.9rem', marginBottom: '6px' }}>
-            {selection.explanation.ipa && <span style={{ color: '#1a73e8', marginRight: '8px', backgroundColor: '#f0f4ff', padding: '2px 6px', borderRadius: '4px' }}>{selection.explanation.ipa}</span>}
-            {selection.explanation.cefr && <span style={{ fontSize: '0.75rem', backgroundColor: '#e8f0fe', color: '#1a73e8', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>{selection.explanation.cefr.toUpperCase()}</span>}
+        <div style={{ wordWrap: 'break-word', wordBreak: 'normal', overflowWrap: 'anywhere' }}>
+          <div style={{ fontSize: '0.9rem', marginBottom: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {selection.explanation.ipa && (
+              <span style={{ color: '#1a73e8', backgroundColor: '#f0f4ff', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85rem' }}>
+                {selection.explanation.ipa}
+              </span>
+            )}
+            {selection.explanation.cefr && (
+              <span style={{ fontSize: '0.7rem', backgroundColor: '#e6fffa', color: '#319795', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', border: '1px solid #b2f5ea' }}>
+                {selection.explanation.cefr.toUpperCase()}
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '0.9rem' }}>
+          
+          <div style={{ fontSize: '0.95rem', lineHeight: '1.5', color: '#444' }}>
             {selection.explanation.definitions?.length ? (
-              selection.explanation.definitions.map((def, idx) => (
-                <div key={idx}><span style={{ fontStyle: 'italic', color: '#888', marginRight: '8px' }}>{def.type}</span>{def.translation}</div>
-              ))
-            ) : <div>{selection.explanation.meaning}</div>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {selection.explanation.definitions.map((def, idx) => (
+                  <div key={idx} style={{ borderLeft: '2px solid #eee', paddingLeft: '8px' }}>
+                    <span style={{ fontStyle: 'italic', color: '#888', marginRight: '6px', fontSize: '0.8rem' }}>{def.type}</span>
+                    <span style={{ color: '#333' }}>{def.translation}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ borderLeft: '2px solid #eee', paddingLeft: '8px' }}>{selection.explanation.meaning}</div>
+            )}
           </div>
-          <button onClick={onToggleVocab} style={{ width: '100%', padding: '6px', backgroundColor: selection.isSaved ? '#ff4d4f' : '#4b8bf5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+          
+          <button 
+            onClick={onToggleVocab} 
+            style={{ 
+              width: '100%', padding: '8px', 
+              backgroundColor: selection.isSaved ? '#fff1f0' : '#4b8bf5', 
+              color: selection.isSaved ? '#ff4d4f' : 'white', 
+              border: selection.isSaved ? '1px solid #ffccc7' : 'none', 
+              borderRadius: '6px', cursor: 'pointer', marginTop: '12px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              gap: '6px', fontWeight: '500', transition: 'all 0.2s'
+            }}
+          >
             {selection.isSaved ? <><Trash2 size={14} /> Remove</> : <><Plus size={14} /> Add to Vocabulary</>}
           </button>
-        </>
+        </div>
       )}
     </div>
   )
