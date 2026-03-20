@@ -42,8 +42,6 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const handleSelection = async () => {
-      if (!tabEnabled) return
-
       const sel = window.getSelection()
       const text = sel?.toString().trim()
       if (!sel || sel.isCollapsed || !text || text.length > 50 || !/[a-zA-Z]/.test(text)) {
@@ -115,13 +113,13 @@ export const SelectionPopup = () => {
     backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
     padding: '12px', zIndex: 2147483647, fontFamily: 'sans-serif', border: '1px solid #ddd',
     minWidth: '220px', maxWidth: '320px', color: '#333', userSelect: 'none',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box', pointerEvents: 'auto'
   }
 
   if (!selection) return null
 
   return (
-    <div style={style} onMouseDown={e => e.stopPropagation()}>
+    <div style={style}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
           <BookOpen size={16} color="#4b8bf5" />

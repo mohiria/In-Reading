@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { scanAndHighlight, clearHighlights } from './engine/scanner'
+import { scanAndHighlight, clearHighlights, unhighlightWord } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
 import { initDictionaryService } from '../common/storage/dictionary-service'
@@ -103,7 +103,28 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                         oldS.pronunciation !== newS.pronunciation || oldS.showIPA !== newS.showIPA
     if (needsRescan && tabEnabled) runScan(true)
   } else if (area === 'local' && changes.vocabulary && tabEnabled) {
-    runScan(true)
+    const oldVocab = (changes.vocabulary.oldValue || []) as any[]
+    const newVocab = (changes.vocabulary.newValue || []) as any[]
+    
+    // Surgical update: only handle words that were added or removed
+    if (newVocab.length > oldVocab.length) {
+      // Added words
+      const added = newVocab.filter(nv => !oldVocab.some(ov => ov.word === nv.word))
+      for (const item of added) {
+        const [settings] = await Promise.all([getSettings()])
+        const vocabSet = new Set(newVocab.map(v => v.word.toLowerCase()))
+        const vocabMap = Object.fromEntries(newVocab.map(v => [v.word.toLowerCase(), v]))
+        // Scan specifically for the new word
+        await scanAndHighlight(
+          document.body, settings.proficiency, vocabSet, vocabMap, 
+          settings.pronunciation, batchLookupWords, false, settings.showIPA
+        )
+      }
+    } else if (newVocab.length < oldVocab.length) {
+      // Removed words
+      const removed = oldVocab.filter(ov => !newVocab.some(nv => nv.word === ov.word))
+      removed.forEach(item => unhighlightWord(item.word, document.body))
+    }
   }
 })
 

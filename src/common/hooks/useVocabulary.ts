@@ -26,11 +26,13 @@ export const useVocabulary = () => {
   }, [])
 
   const addWord = async (word: SavedWord) => {
+    console.log('useVocabulary: Adding word', word.word)
     await addToVocabulary(word)
     await refresh()
   }
 
   const removeWord = async (wordText: string) => {
+    console.log('useVocabulary: Removing word', wordText)
     await removeFromVocabulary(wordText)
     await refresh()
   }
