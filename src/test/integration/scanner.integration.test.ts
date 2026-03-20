@@ -11,6 +11,8 @@ describe('Scanner Integration - MS Learn Simulation', () => {
       <main role="main">
         <article>
           <h1>Publish extension</h1>
+          <h2 id="h2-nested"><span>Nested extension title</span></h2>
+          <div role="heading" aria-level="3">Heading Role extension</div>
           <p id="p1">An extension is a tool.</p>
           <p id="p2">One extension per user.</p>
           <p id="p3">This extension is good.</p>
@@ -30,6 +32,8 @@ describe('Scanner Integration - MS Learn Simulation', () => {
     expect(document.querySelector('header')?.querySelectorAll('.ll-word-container').length).toBe(0)
     expect(document.querySelector('footer')?.querySelectorAll('.ll-word-container').length).toBe(0)
     expect(document.querySelector('h1')?.querySelectorAll('.ll-word-container').length).toBe(0)
+    expect(document.getElementById('h2-nested')?.querySelectorAll('.ll-word-container').length).toBe(0)
+    expect(document.querySelector('[role="heading"]')?.querySelectorAll('.ll-word-container').length).toBe(0)
 
     // 2. Check spaced reinforcement (Skip 3 paragraphs between translations)
     const getT = (id: string) => document.getElementById(id)?.querySelector('.ll-translation')?.textContent || ''

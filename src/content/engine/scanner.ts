@@ -7,19 +7,12 @@ import { speak } from '../../common/utils/speech'
  */
 const REFRESH_GAP = 4 // Skip 3 paragraphs between translations (1 show, 3 hide)
 
-const IGNORE_TAGS = new Set([
-  'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE',
-  'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 
-  'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
-  'KBD', 'SAMP', 'VAR', 'TIME', 'DATA',
-  'SVG', 'CANVAS', 'MATH', 'SUMMARY', 'DIALOG'
-])
+const IGNORE_TAGS = 'SCRIPT, STYLE, TEXTAREA, INPUT, NOSCRIPT, CODE, PRE, H1, H2, H3, H4, H5, H6, HEADER, NAV, FOOTER, ASIDE, LABEL, SELECT, OPTION, FIELDSET, LEGEND, KBD, SAMP, VAR, TIME, DATA, SVG, CANVAS, MATH, SUMMARY, DIALOG'
 
 const IGNORE_ROLES = `
-  nav, header, footer, aside, button, 
-  [role="navigation"], [role="button"], [role="menu"], 
-  [role="tablist"], [role="tab"], [role="tooltip"], 
-  [role="status"], [role="alert"], [aria-hidden="true"]
+  [role="navigation"], [role="button"], [role="menu"], [role="banner"], [role="contentinfo"],
+  [role="tablist"], [role="tab"], [role="tooltip"], [role="status"], [role="alert"], 
+  [role="heading"], [aria-hidden="true"]
 `
 
 interface WordState {
@@ -33,8 +26,14 @@ interface WordState {
 const shouldIgnoreNode = (node: Node): boolean => {
   const parent = node.parentElement
   if (!parent) return true
-  if (IGNORE_TAGS.has(parent.tagName) || parent.isContentEditable) return true
-  return !!parent.closest(IGNORE_ROLES)
+  
+  // Check if current text is inside an ignored structural element or editable area
+  if (parent.closest(IGNORE_TAGS) || parent.isContentEditable) return true
+  
+  // Check if inside any ignored ARIA roles or specific navigation/action elements
+  if (parent.closest(IGNORE_ROLES) || parent.closest('button, nav, header, footer, aside')) return true
+
+  return false
 }
 
 /**
