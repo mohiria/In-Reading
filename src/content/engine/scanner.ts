@@ -9,18 +9,53 @@ const REFRESH_GAP = 2 // Increased sensitivity: show word more frequently (every
 
 /**
  * Elements and Roles that should be skipped entirely (including their children).
+ * These are terminal UI elements or hidden areas that never contain readable prose.
  */
 const SKIP_SELECTOR = [
   'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE', 
-  'HEADER', 'NAV', 'FOOTER', 'ASIDE', 'BUTTON',
-  'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
+  'NAV', 'BUTTON', 'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
   'KBD', 'SAMP', 'VAR', 'TIME', 'DATA', 'SVG', 'CANVAS', 'MATH',
-  'SUMMARY', 'DIALOG',
-  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="banner"]', 
-  '[role="contentinfo"]', '[role="tablist"]', '[role="tab"]', '[role="tooltip"]', 
-  '[role="status"]', '[role="alert"]', '[role="complementary"]',
+  'SUMMARY', 'DIALOG', 'MENU',
+  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="tablist"]', 
+  '[role="tab"]', '[role="tooltip"]', '[role="status"]', '[role="alert"]',
   '[aria-hidden="true"]'
 ].join(', ')
+
+/**
+ * Heuristic check if an element is likely part of a Navigation/UI area.
+ * We prioritize content: if it has a paragraph, we walk it.
+ * Otherwise, if it's link-heavy, we reject it as a navigation/menu area.
+ */
+const isLikelyUI = (el: HTMLElement): boolean => {
+  // 1. Proactive content check: If it contains a paragraph, it's likely prose (like a summary)
+  // This is the "Safe Guard" to ensure summaries in headers/sidebars are translated.
+  if (el.querySelector('p')) return false
+
+  // 2. Link Density check: For any container (DIV, UL, OL, etc.)
+  // If more than 50% of text is within links, it's likely a navigation area.
+  const text = el.textContent || ''
+  const trimmedText = text.trim()
+  if (trimmedText.length > 0 && trimmedText.length < 3000) {
+    const links = el.querySelectorAll('a')
+    let linkTextLength = 0
+    links.forEach(a => { 
+      linkTextLength += (a.textContent?.trim().length || 0) 
+    })
+    
+    // Calculate density. For very short snippets, we are more aggressive.
+    const density = linkTextLength / trimmedText.length
+    if (density > 0.5) return true
+  }
+
+  // 3. Fallback: Specific UI Class Patterns for very short items (labels/icons)
+  const className = el.className.toString().toLowerCase()
+  const uiKeywords = ['sidebar', 'nav-', 'navbar', 'menu-', 'toc-', 'breadcrumb', 'pagination']
+  if (uiKeywords.some(key => className.includes(key)) && trimmedText.length < 100) {
+    return true
+  }
+
+  return false
+}
 
 /**
  * Heading tags are usually ignored to preserve layout, but we allow them if they are deep inside content.
@@ -45,7 +80,12 @@ const createOptimizedWalker = (root: HTMLElement | Document, extraReject?: (el: 
           return NodeFilter.FILTER_REJECT
         }
         
-        // 2. Skip headings to preserve layout/structure
+        // 2. Heuristic check for UI containers
+        if (isLikelyUI(el)) {
+          return NodeFilter.FILTER_REJECT
+        }
+
+        // 3. Skip headings to preserve layout/structure
         if (el.matches(HEADER_SELECTOR)) {
           return NodeFilter.FILTER_REJECT
         }
