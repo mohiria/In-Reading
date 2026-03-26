@@ -59,56 +59,44 @@ describe('Scanner Unit Tests - Smart Filtering & Reinforcement', () => {
     expect(translation).not.toContain('UK ')
   })
 
-  it('should translate paragraphs inside structural containers like header', async () => {
+  it('should identify prose in DIVs or SPANs based on punctuation and length', async () => {
     document.body.innerHTML = `
-      <header id="header">
-        <div class="nav-bar">
-          <a href="/">Home</a>
-          <a href="/docs">Docs</a>
-        </div>
-        <p id="summary">A simple, open format for giving agents new capabilities.</p>
-      </header>
+      <div id="target-div">A long sentence that ends with a period. It should be translated.</div>
+      <span id="target-span">Another valid prose, even in a span, because it looks like a sentence!</span>
     `
-    const mockDict = { 'simple': { meaning: '简单的' } } as any
+    const mockDict = { 'sentence': { meaning: '句子' }, 'valid': { meaning: '有效的' } } as any
     await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
 
-    // The summary paragraph should be translated even though it is inside a header
-    expect(document.querySelector('#summary .ll-word-container')).not.toBeNull()
-    // The nav-bar part might be skipped if link density is high, but the P saves the header from being rejected as a whole
+    expect(document.getElementById('target-div')?.querySelector('.ll-word-container')).not.toBeNull()
+    expect(document.getElementById('target-span')?.querySelector('.ll-word-container')).not.toBeNull()
   })
 
-  it('should still skip sidebars and navigation based on class names', async () => {
+  it('should skip sidebars and navigation based on textual features (density/punctuation)', async () => {
     document.body.innerHTML = `
-      <div class="main-content"><p>apple (show)</p></div>
-      <div class="sidebar-wrapper"><p>apple (skip)</p></div>
-      <nav class="custom-nav"><p>apple (skip)</p></nav>
+      <div class="unknown-container">
+        <a href="#">Home</a>
+        <a href="#">About</a>
+        <a href="#">Settings</a>
+      </div>
     `
-    const mockDict = { 'apple': { meaning: '苹果', ipa: 'ˈæpl' } } as any
+    const mockDict = { 'home': { meaning: '首页' } } as any
     await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
 
-    expect(document.querySelector('.main-content .ll-word-container')).not.toBeNull()
-    expect(document.querySelector('.sidebar-wrapper .ll-word-container')).toBeNull()
-    expect(document.querySelector('.custom-nav .ll-word-container')).toBeNull()
+    // Should be skipped due to high link density and lack of punctuation
+    expect(document.querySelector('.unknown-container .ll-word-container')).toBeNull()
   })
 
-  it('should skip link-heavy navigation areas (Link Density)', async () => {
+  it('should skip link-heavy navigation areas even if they are large', async () => {
     document.body.innerHTML = `
       <div id="nav-area">
-        <a href="#">Home</a>
-        <a href="#">Products</a>
-        <a href="#">Services</a>
-        <a href="#">Contact apple</a>
-      </div>
-      <div id="content-area">
-        <p>This is a paragraph about an apple.</p>
+        <a href="#">Home</a> <a href="#">Products</a> <a href="#">Services</a>
+        <a href="#">Blog</a> <a href="#">Career</a> <a href="#">Privacy</a>
+        <a href="#">Terms</a> <a href="#">Support</a> <a href="#">apple</a>
       </div>
     `
-    const mockDict = { 'apple': { meaning: '苹果', ipa: 'ˈæpl' } } as any
+    const mockDict = { 'apple': { meaning: '苹果' } } as any
     await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
 
-    // The nav-area has apple inside a link-heavy context, it should be skipped
     expect(document.querySelector('#nav-area .ll-word-container')).toBeNull()
-    // The content-area should still have the translation
-    expect(document.querySelector('#content-area .ll-word-container')).not.toBeNull()
   })
 })
