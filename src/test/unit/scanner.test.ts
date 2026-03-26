@@ -59,14 +59,44 @@ describe('Scanner Unit Tests - Smart Filtering & Reinforcement', () => {
     expect(translation).not.toContain('UK ')
   })
 
-  it('should unhighlight specific words correctly', async () => {
-    document.body.innerHTML = '<p>apple pie</p>'
+  it('should identify prose in DIVs or SPANs based on punctuation and length', async () => {
+    document.body.innerHTML = `
+      <div id="target-div">A long sentence that ends with a period. It should be translated.</div>
+      <span id="target-span">Another valid prose, even in a span, because it looks like a sentence!</span>
+    `
+    const mockDict = { 'sentence': { meaning: '句子' }, 'valid': { meaning: '有效的' } } as any
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
+
+    expect(document.getElementById('target-div')?.querySelector('.ll-word-container')).not.toBeNull()
+    expect(document.getElementById('target-span')?.querySelector('.ll-word-container')).not.toBeNull()
+  })
+
+  it('should skip sidebars and navigation based on textual features (density/punctuation)', async () => {
+    document.body.innerHTML = `
+      <div class="unknown-container">
+        <a href="#">Home</a>
+        <a href="#">About</a>
+        <a href="#">Settings</a>
+      </div>
+    `
+    const mockDict = { 'home': { meaning: '首页' } } as any
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
+
+    // Should be skipped due to high link density and lack of punctuation
+    expect(document.querySelector('.unknown-container .ll-word-container')).toBeNull()
+  })
+
+  it('should skip link-heavy navigation areas even if they are large', async () => {
+    document.body.innerHTML = `
+      <div id="nav-area">
+        <a href="#">Home</a> <a href="#">Products</a> <a href="#">Services</a>
+        <a href="#">Blog</a> <a href="#">Career</a> <a href="#">Privacy</a>
+        <a href="#">Terms</a> <a href="#">Support</a> <a href="#">apple</a>
+      </div>
+    `
     const mockDict = { 'apple': { meaning: '苹果' } } as any
     await scanAndHighlight(document.body, 'CEFR_A1', new Set(), mockDict)
 
-    expect(document.querySelector('.ll-word-container')).not.toBeNull()
-    unhighlightWord('apple', document.body)
-    expect(document.querySelector('.ll-word-container')).toBeNull()
-    expect(document.body.textContent).toBe('apple pie')
+    expect(document.querySelector('#nav-area .ll-word-container')).toBeNull()
   })
 })

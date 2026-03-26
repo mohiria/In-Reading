@@ -9,18 +9,63 @@ const REFRESH_GAP = 2 // Increased sensitivity: show word more frequently (every
 
 /**
  * Elements and Roles that should be skipped entirely (including their children).
+ * These are terminal UI elements or hidden areas that never contain readable prose.
  */
 const SKIP_SELECTOR = [
   'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE', 
-  'HEADER', 'NAV', 'FOOTER', 'ASIDE', 'BUTTON',
-  'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
+  'NAV', 'BUTTON', 'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
   'KBD', 'SAMP', 'VAR', 'TIME', 'DATA', 'SVG', 'CANVAS', 'MATH',
-  'SUMMARY', 'DIALOG',
-  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="banner"]', 
-  '[role="contentinfo"]', '[role="tablist"]', '[role="tab"]', '[role="tooltip"]', 
-  '[role="status"]', '[role="alert"]', '[role="complementary"]',
+  'SUMMARY', 'DIALOG', 'MENU',
+  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="tablist"]', 
+  '[role="tab"]', '[role="tooltip"]', '[role="status"]', '[role="alert"]',
   '[aria-hidden="true"]'
 ].join(', ')
+
+/**
+ * Heuristic check if an element is likely part of a Navigation/UI area.
+ */
+const isLikelyUI = (el: HTMLElement): boolean => {
+  const text = el.textContent || ''
+  const trimmedText = text.trim()
+  if (!trimmedText) return false
+
+  const totalLen = trimmedText.length
+  const links = el.querySelectorAll('a')
+  let linkTextLen = 0
+  links.forEach(a => { linkTextLen += (a.textContent?.trim().length || 0) })
+  
+  // Link Density: How much of the text is wrapped in <a> tags?
+  const linkDensity = totalLen > 0 ? linkTextLen / totalLen : 0
+  
+  // Punctuation check: Real prose has sentences.
+  const hasPunctuation = /[.,!?;\uff0c\u3002\uff1f\uff01\uff1b]/.test(trimmedText)
+
+  // 1. High-Confidence UI Identification (Navigation/Menus/Lists)
+  // If it's mostly links and doesn't look like a sentence, it's UI.
+  // We use a slightly lower threshold (0.4) to be safer against nav lists.
+  if (linkDensity > 0.4 && !hasPunctuation && totalLen < 2000) {
+    return true
+  }
+
+  // 2. High-Confidence Prose Identification
+  // If it's long enough, has punctuation, and isn't dominated by links, it's content.
+  if (totalLen > 40 && hasPunctuation && linkDensity < 0.4) {
+    return false 
+  }
+
+  // 3. Specific UI Patterns (Keywords + Length)
+  const className = el.className.toString().toLowerCase()
+  const uiKeywords = ['sidebar', 'nav-', 'navbar', 'menu-', 'toc-', 'breadcrumb', 'pagination', 'header', 'footer']
+  if (uiKeywords.some(key => className.includes(key))) {
+    // UI-named containers without prose features are skipped.
+    if (totalLen < 200 && !hasPunctuation) return true
+  }
+
+  // 4. Fallback for very short terminal items (e.g., "Home", "Next")
+  if (totalLen < 40 && linkDensity > 0.7) return true
+
+  return false
+}
 
 /**
  * Heading tags are usually ignored to preserve layout, but we allow them if they are deep inside content.
@@ -45,7 +90,12 @@ const createOptimizedWalker = (root: HTMLElement | Document, extraReject?: (el: 
           return NodeFilter.FILTER_REJECT
         }
         
-        // 2. Skip headings to preserve layout/structure
+        // 2. Heuristic check for UI containers
+        if (isLikelyUI(el)) {
+          return NodeFilter.FILTER_REJECT
+        }
+
+        // 3. Skip headings to preserve layout/structure
         if (el.matches(HEADER_SELECTOR)) {
           return NodeFilter.FILTER_REJECT
         }
