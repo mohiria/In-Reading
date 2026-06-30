@@ -23,5 +23,5 @@
 ## 5. 验证与提交
 
 - [x] 5.1 `npm run build` + `npm test` 全绿；出 `qa/qa-report.md`
-- [ ] 5.2 手动：保存 >20 词 → Options 看到全量、时间分组正确、搜索可用；导出 CSV 用 Excel 打开中文不乱码、在 Anki `File→Import` 能按字段映射导入 — 待用户在浏览器实测
+- [x] 5.2 手动（用户实测）：①全量可见、③搜索、④导出 CSV(Excel/Anki) 均通过；②时间分组因暂无历史生词（均为当天添加）无法手动覆盖到 本周/本月/更早，已由单测 T1（构造各时段 timestamp）确定性覆盖
 - [x] 5.3 提交（Conventional Commits，中文正文）
