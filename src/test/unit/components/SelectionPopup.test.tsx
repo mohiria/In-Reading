@@ -53,10 +53,11 @@ vi.mock('../../../common/hooks/useVocabulary', () => ({
 vi.mock('../../../common/storage/indexed-db', () => ({
   lookupWordInDB: vi.fn().mockResolvedValue(null),
   batchLookupWords: vi.fn().mockResolvedValue({}),
-  getAiCache: vi.fn().mockResolvedValue({})
+  getAiCache: vi.fn().mockResolvedValue({}),
+  putAiCache: vi.fn().mockResolvedValue(undefined)
 }))
 
-import { getAiCache } from '../../../common/storage/indexed-db'
+import { getAiCache, putAiCache } from '../../../common/storage/indexed-db'
 
 describe('SelectionPopup Standardization', () => {
   beforeEach(() => {
@@ -112,5 +113,30 @@ describe('SelectionPopup Standardization', () => {
       expect.objectContaining({ type: 'TRANSLATE_WORD' }),
       expect.anything()
     )
+  })
+
+  it('C2: a network translation result is written to ai_cache for instant reuse', async () => {
+    // Local miss → goes to network; the returned gloss must be cached.
+    ;(getAiCache as any).mockResolvedValue({})
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'serendipity',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, callback: any) => {
+      if (msg.type === 'GET_TAB_STATE') callback({ enabled: true })
+      if (msg.type === 'TRANSLATE_WORD') callback({ success: true, data: { word: 'serendipity', meaning: '机缘巧合', ipa_us: '/x/', source: 'AI (GPT)' } })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    // Wait for the network result to render, then assert it was cached.
+    expect(await screen.findByText('机缘巧合')).toBeDefined()
+    expect(putAiCache).toHaveBeenCalledWith([
+      expect.objectContaining({ word: 'serendipity', meaning: '机缘巧合' })
+    ])
   })
 })

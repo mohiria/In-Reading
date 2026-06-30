@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
-import { lookupWordInDB, getAiCache } from '../../common/storage/indexed-db'
+import { lookupWordInDB, getAiCache, putAiCache } from '../../common/storage/indexed-db'
 import { WordExplanation } from '../../common/types'
 import { BookOpen, Plus, Trash2 } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
@@ -82,6 +82,16 @@ export const SelectionPopup = () => {
         setLoading(false)
         if (res?.success) {
           setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
+          // Cache single-word results so a repeat selection resolves instantly.
+          if (res.data?.meaning && !/\s/.test(text)) {
+            putAiCache([{
+              word: lowerText,
+              meaning: res.data.meaning,
+              ipa_us: res.data.ipa_us,
+              ipa_uk: res.data.ipa_uk,
+              source: res.data.source
+            }]).catch(() => {})
+          }
         }
       })
     }

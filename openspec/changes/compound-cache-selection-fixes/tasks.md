@@ -16,6 +16,13 @@
 - [x] 3.1 写 Red 组件测试（`SelectionPopup.test.tsx` C1）：mock `getAiCache` 命中 → 断言渲染释义且不调 `TRANSLATE_WORD`；贴出 Red（findByText 机缘巧合 未找到）
 - [x] 3.2 `SelectionPopup.tsx` 本地预查补 `getAiCache`（confusion → lookupWordInDB → ai_cache）→ 测试 Green（2/2）
 
+## 3b. 跟进修复（用户验证发现）
+
+- [x] 3b.1 #2 重置后仍显示旧译：`batchLookupWords`/`lookupWordInDB` 改为 WORDS 优先（两遍：先核心词库全候选，再 user_words 兜底），核心词库永不被陈旧 user_words 快照遮蔽
+- [x] 3b.2 #2 scanner 查全部候选（不再排除 userDict 命中词），核心词库覆盖 userDict 快照；集成测试 `scanner.integration P1` Red（显示「食欲」）→ Green（「出现」）
+- [x] 3b.3 #4 划词第二次仍加载：`SelectionPopup` 网络结果成功后 `putAiCache`（单词），重复划词即时命中；组件测试 C2 Green
+- [x] 3b.4 user_words 的 WORDS 优先属 IndexedDB 时序（jsdom 无），文档化非 TDD 例外 + 手动验证
+
 ## 4. 验证与提交
 
 - [x] 4.1 全量 `npx vitest run` 60/60 + `npm run build` 通过；出 `qa/qa-report.md`

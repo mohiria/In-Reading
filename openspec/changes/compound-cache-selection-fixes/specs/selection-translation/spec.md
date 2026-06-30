@@ -13,3 +13,12 @@ When a user selects a word for translation, the popup SHALL consult the local AI
 
 - **WHEN** the selected word is not in the confusion map, core dictionary, or AI cache
 - **THEN** the existing network translation flow (LLM / dictionary / MT) is used as before
+
+### Requirement: Selection translation result is cached
+
+A successful network translation of a single selected word SHALL be written to the local AI cache so that selecting the same word again resolves instantly without another network request.
+
+#### Scenario: Repeated selection of the same word is instant
+
+- **WHEN** a word is translated over the network once, then selected again later
+- **THEN** the second selection resolves from the local cache with no network request

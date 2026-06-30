@@ -161,14 +161,13 @@ export const scanAndHighlight = async (
     }
   }
 
-  // 2. Batch fetch dictionary data
+  // 2. Batch fetch dictionary data. Look up ALL candidates (not just those absent
+  //    from userDict) so the core dictionary overrides any stale saved-word
+  //    snapshot in userDict; saved words not in the core dict keep their snapshot.
   let combinedDict = { ...userDict }
   if (dbLookup && candidates.size > 0) {
-    const missing = Array.from(candidates).filter(w => !combinedDict[w])
-    if (missing.length > 0) {
-      const dbResults = await dbLookup(missing).catch(() => ({}))
-      combinedDict = { ...combinedDict, ...dbResults }
-    }
+    const dbResults = await dbLookup(Array.from(candidates)).catch(() => ({}))
+    combinedDict = { ...combinedDict, ...dbResults }
   }
 
   // 3. Phase 1 — local annotation (immediate, unchanged behavior)

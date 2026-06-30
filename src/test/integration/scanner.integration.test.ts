@@ -47,4 +47,20 @@ describe('Scanner Integration - MS Learn Simulation', () => {
     expect(hasExt('p4')).toBe(false) // 4th: Gap
     expect(hasExt('p5')).toBe(true)  // 5th: Refresh Show
   })
+
+  it('P1: core dictionary overrides a stale saved-word snapshot in userDict', async () => {
+    document.body.innerHTML = `<main role="main"><article><p id="px">They appear today.</p></article></main>`
+    // userDict carries the stale saved snapshot; dbLookup returns the corrected core entry.
+    const userDict = { appear: { word: 'appear', meaning: '食欲', cefr: [] } } as any
+    const dbLookup = async (words: string[]) =>
+      (words.includes('appear') ? { appear: { word: 'appear', meaning: '出现', cefr: [] } } : {}) as any
+
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(['appear']), userDict, 'US', dbLookup)
+
+    const container = document.querySelector('.ll-word-container[data-word="appear"]')
+    expect(container).toBeTruthy()
+    const translation = container?.querySelector('.ll-translation')?.textContent || ''
+    expect(translation).toContain('出现')
+    expect(translation).not.toContain('食欲')
+  })
 })

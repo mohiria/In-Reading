@@ -31,6 +31,12 @@
 
 jsdom 无 `indexedDB`、无 `chrome.runtime.onInstalled`，`resetDictionaryCache`/onInstalled/Options 按钮属集成时序，无法在当前测试栈拿断言级 Red。备选验证：代码审查 + 4.2 手动。剩余风险：onInstalled 在某些浏览器对「重载 unpacked 扩展」是否必触发存在差异；Options 手动按钮为兜底。
 
+## 跟进修复（用户手动验证发现，二次提交）
+
+- **#2 重置后 appear 仍显示旧译**：根因——`batchLookupWords`/`lookupWordInDB` 原 `user_words || words` 顺序，且 reset 不清 `user_words`、Brave 中 IndexedDB 持久化，旧快照（appear=食欲）遮蔽重导后的正确核心词库。修复：两处查词改 **WORDS 优先两遍**（先核心词库全候选，再 user_words 兜底）；scanner 改查全部候选，核心词库覆盖 userDict 快照。证据：`scanner.integration P1` Red `' (食欲)' 不含 '出现'` → 改后 Green。`user_words` 那一层（jsdom 无 IndexedDB）记为非 TDD 例外 + 手动验证。
+- **#4 划词第二次仍加载**：根因——划词结果未写回 `ai_cache`。修复：`SelectionPopup` 网络成功后 `putAiCache`（单词）。证据：组件测试 C2 断言结果被缓存（Green）。
+- 二次提交后全量 `npx vitest run` 62/62、`npm run build` 通过。
+
 ## 剩余风险 / 待手动验证（4.2）
 
 - Brave 读 BBC 测试页（开 AI）：`anti-migrant` 单注解；重载扩展后无需手删 IndexedDB 即见修正释义；Options 按钮即时刷新且生词本仍在；划词已回填进阶词即时出、无 loading。

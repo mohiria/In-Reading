@@ -156,9 +156,16 @@ export const forceReimportDictionary = async () => {
 
 export const lookupWordInDB = async (word: string): Promise<WordExplanation | undefined> => {
   const db = await initDB()
-  // Surface form first, then lemma / suffix-stripped bases (see getLookupCandidates).
-  for (const key of getLookupCandidates(word)) {
-    const res = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
+  // Core dictionary (words) takes precedence over the user_words snapshot, so a
+  // corrected core entry is never shadowed by a stale saved copy. Within each
+  // store: surface form first, then lemma / suffix-stripped bases.
+  const candidates = getLookupCandidates(word)
+  for (const key of candidates) {
+    const res = await db.get(STORES.WORDS, key)
+    if (res) return res
+  }
+  for (const key of candidates) {
+    const res = await db.get(STORES.USER, key)
     if (res) return res
   }
   return undefined
@@ -170,15 +177,18 @@ export const batchLookupWords = async (words: string[]): Promise<Record<string, 
 
   await Promise.all(words.map(async (w) => {
     const lower = w.toLowerCase()
-    // Surface form first (so building/meeting use their own entry), then lemma /
-    // suffix-stripped bases; key the result by the surface form so the caller's
-    // dict[surface] fallback resolves the inflected token.
-    for (const key of getLookupCandidates(w)) {
-      const entry = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
-      if (entry) {
-        results[lower] = entry
-        break
-      }
+    // Core dictionary (words) first — fresh/corrected data — then user_words only
+    // as a fallback for words absent from the core dict. Within each store: surface
+    // form first (so building/meeting use their own entry), then lemma / suffix
+    // bases. Key by the surface form so the caller's dict[surface] fallback resolves.
+    const candidates = getLookupCandidates(w)
+    for (const key of candidates) {
+      const entry = await db.get(STORES.WORDS, key)
+      if (entry) { results[lower] = entry; return }
+    }
+    for (const key of candidates) {
+      const entry = await db.get(STORES.USER, key)
+      if (entry) { results[lower] = entry; return }
     }
   }))
 
