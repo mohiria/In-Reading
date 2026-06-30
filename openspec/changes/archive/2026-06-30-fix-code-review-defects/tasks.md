@@ -15,7 +15,7 @@
 - [x] 2.2 类名按 token 精确匹配（`hasUiClass`，去掉 header/footer），停止误伤 `article-header` (#7)
 - [x] 2.3 内容地标（main/article）豁免链接密度整块拒绝，停止丢弃真实内容 (#4)
 - [x] 2.4 isLikelyUI 仅对无块级后代的 leaf-ish 容器做链接密度分析（`BLOCK_SELECTOR` 短路），结构 wrapper 廉价下降，去 O(n²) (#10)
-- [ ] 2.5 Manually verify on representative pages (BBC article, Wikipedia, page with footer disclaimer, sidebar summary, reference/citation list) — 归入 Batch 5.2 端到端手动验证
+- [x] 2.5 Manually verify on representative pages — 已并入 5.2 由用户在浏览器实测闭环
 - [x] 2.6 Run `npm run build` + `npm test`（29/29 通过，构建通过）; commit Batch 2
 
 ## 3. Batch 3 — Inflected-word coverage
