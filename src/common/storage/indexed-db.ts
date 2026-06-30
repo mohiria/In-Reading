@@ -1,6 +1,17 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
 import pako from 'pako'
 import { WordExplanation } from '../types'
+import inflections from '../nlp/inflections.json'
+
+/**
+ * Ordered keys to look up for a surface word: the surface form first, then its
+ * lemma from inflections.json (so inflected forms hit the base-form dictionary).
+ */
+export const getLemmaKeys = (word: string): string[] => {
+  const lower = word.toLowerCase()
+  const lemma = (inflections as Record<string, string>)[lower]
+  return lemma && lemma !== lower ? [lower, lemma] : [lower]
+}
 
 const DB_NAME = 'll_dictionary_db'
 const DB_VERSION = 3
@@ -70,28 +81,36 @@ const importDictionary = async (db: IDBPDatabase<DictionaryDB>, version: number)
 export const lookupWordInDB = async (word: string): Promise<WordExplanation | undefined> => {
   const db = await initDB()
   const lower = word.toLowerCase()
-  
-  let res = await db.get(STORES.USER, lower)
-  if (!res) res = await db.get(STORES.WORDS, lower)
-  
-  // Simple Lemmatization Fallbacks
-  if (!res) {
-    if (lower.endsWith('s')) res = await db.get(STORES.WORDS, lower.slice(0, -1))
-    else if (lower.endsWith('ed')) res = await db.get(STORES.WORDS, lower.slice(0, -2))
-    else if (lower.endsWith('ing')) res = await db.get(STORES.WORDS, lower.slice(0, -3))
+
+  // Try surface form, then the inflections.json lemma (so studies -> study hits).
+  for (const key of getLemmaKeys(word)) {
+    const res = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
+    if (res) return res
   }
-  return res
+
+  // Simple morphological fallbacks for forms not in inflections.json.
+  if (lower.endsWith('s')) return db.get(STORES.WORDS, lower.slice(0, -1))
+  if (lower.endsWith('ed')) return db.get(STORES.WORDS, lower.slice(0, -2))
+  if (lower.endsWith('ing')) return db.get(STORES.WORDS, lower.slice(0, -3))
+  return undefined
 }
 
 export const batchLookupWords = async (words: string[]): Promise<Record<string, WordExplanation>> => {
   const db = await initDB()
   const results: Record<string, WordExplanation> = {}
-  
+
   await Promise.all(words.map(async (w) => {
     const lower = w.toLowerCase()
-    const entry = (await db.get(STORES.USER, lower)) || (await db.get(STORES.WORDS, lower))
-    if (entry) results[lower] = entry
+    // Query surface form first, then the lemma; key the result by the surface
+    // form so the caller's dict[surface] fallback resolves the inflected token.
+    for (const key of getLemmaKeys(w)) {
+      const entry = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
+      if (entry) {
+        results[lower] = entry
+        break
+      }
+    }
   }))
-  
+
   return results
 }

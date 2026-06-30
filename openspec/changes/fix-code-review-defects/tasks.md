@@ -20,9 +20,10 @@
 
 ## 3. Batch 3 — Inflected-word coverage
 
-- [ ] 3.1 In scanner candidate collection, also add `inflections[w]` lemma to the candidate set so the IndexedDB query includes base forms (`src/content/engine/scanner.ts`) (#3)
-- [ ] 3.2 And/or add lemma + suffix fallback to `batchLookupWords` (`src/common/storage/indexed-db.ts`), reusing `lookupWordInDB` suffix logic
-- [ ] 3.3 Verify inflected core words (studies/running/countries) get annotated for an appropriate user level; run `npm run build` + `npm test`; commit Batch 3
+- [x] 3.0 QA 前置：`qa/test-design-batch3.md` + Red 测试（B3-1/B3-2 断言级 Red，已贴输出）
+- [x] 3.1 提取纯函数 `getLemmaKeys(word)`→`[surface, lemma]`（lemma 取自 `inflections.json`）(#3)
+- [x] 3.2 `batchLookupWords` 与 `lookupWordInDB` 依序按 lemma 键查 DB，结果按表面词形 key（`src/common/storage/indexed-db.ts`）
+- [x] 3.3 全量 `npm test`（33/33）+ `npm run build` 通过；变形词真实命中留待 Batch 5.2 手动验证; commit Batch 3
 
 ## 4. Batch 4 — Data & build-script fixes
 
