@@ -20,7 +20,10 @@ export const analyzeText = (
   confusionMap: Record<string, any> = defaultConfusionMap
 ): IdentifiedWord[] => {
   const results: IdentifiedWord[] = []
-  const regex = /\b[a-zA-Z]{3,}\b/g
+  // Hyphen-aware: a hyphenated alphabetic compound (anti-migrant) is matched as a
+  // single token (first alternative, tried greedily) so it is annotated as one unit
+  // when it resolves — and not split into separately-annotated parts when it does not.
+  const regex = /[A-Za-z]+(?:-[A-Za-z]+)+|[a-zA-Z]{3,}/g
   let match
   
   const activeMap = confusionMap || defaultConfusionMap

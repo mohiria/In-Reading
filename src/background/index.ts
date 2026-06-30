@@ -1,6 +1,7 @@
 import { fetchFromLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
 import { UserSettings } from '../common/types'
 import { getSettings } from '../common/storage/settings'
+import { resetDictionaryCache } from '../common/storage/indexed-db'
 import * as TranslationService from './services/translation'
 
 /**
@@ -102,6 +103,14 @@ async function handleBackfillRequest(
 /**
  * Event Listeners
  */
+// On install/update (including reloading the unpacked extension), reset the
+// dictionary version so the next page scan re-imports the latest bundled
+// dictionary — even when the bundled version number is unchanged. Saved
+// vocabulary (user_words / chrome.storage) is left untouched.
+chrome.runtime.onInstalled.addListener(() => {
+  resetDictionaryCache().catch(err => console.error('Dictionary cache reset on install failed', err))
+})
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-translation') {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })

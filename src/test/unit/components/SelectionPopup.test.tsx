@@ -52,8 +52,11 @@ vi.mock('../../../common/hooks/useVocabulary', () => ({
 
 vi.mock('../../../common/storage/indexed-db', () => ({
   lookupWordInDB: vi.fn().mockResolvedValue(null),
-  batchLookupWords: vi.fn().mockResolvedValue({})
+  batchLookupWords: vi.fn().mockResolvedValue({}),
+  getAiCache: vi.fn().mockResolvedValue({})
 }))
+
+import { getAiCache } from '../../../common/storage/indexed-db'
 
 describe('SelectionPopup Standardization', () => {
   beforeEach(() => {
@@ -84,5 +87,30 @@ describe('SelectionPopup Standardization', () => {
     // Should find full names directly
     expect(await screen.findByText('noun')).toBeDefined()
     expect(await screen.findByText('verb')).toBeDefined()
+  })
+
+  it('C1: an ai_cache hit renders instantly without a TRANSLATE_WORD network request', async () => {
+    // A word not in the confusion map and not in the core dict, but present in ai_cache.
+    ;(getAiCache as any).mockResolvedValue({
+      serendipity: { word: 'serendipity', meaning: '机缘巧合', ipa_us: '/ˌserənˈdɪpəti/', source: 'AI' }
+    })
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'serendipity',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    // Meaning shown from the local cache...
+    expect(await screen.findByText('机缘巧合')).toBeDefined()
+    // ...and no network translation request was issued.
+    expect(chromeMock.runtime.sendMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'TRANSLATE_WORD' }),
+      expect.anything()
+    )
   })
 })

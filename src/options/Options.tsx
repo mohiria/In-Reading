@@ -6,13 +6,30 @@ import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
 import { toCSV, downloadCSV } from '../common/utils/export'
 import { formatIPA } from '../common/utils/format'
-import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download } from 'lucide-react'
+import { forceReimportDictionary } from '../common/storage/indexed-db'
+import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download, RotateCcw } from 'lucide-react'
 
 export const Options = () => {
   const { settings, updateSettings, loading } = useSettings()
   const { vocabulary, removeWord } = useVocabulary()
   const [savedStatus, setSavedStatus] = useState(false)
   const [vocabQuery, setVocabQuery] = useState('')
+  const [resetting, setResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
+
+  const handleResetDictCache = async () => {
+    setResetting(true)
+    setResetMsg('')
+    try {
+      await forceReimportDictionary()
+      setResetMsg('已重置并重导词库，请刷新正在阅读的页面以生效。')
+    } catch {
+      setResetMsg('重置失败，请重试。')
+    } finally {
+      setResetting(false)
+      setTimeout(() => setResetMsg(''), 5000)
+    }
+  }
 
   const handleUpdate = async (updates: any) => {
     await updateSettings(updates)
@@ -210,6 +227,27 @@ export const Options = () => {
               </div>
             ))
           })()}
+        </section>
+
+        <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
+          <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RotateCcw size={20} /> 维护
+          </h2>
+          <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: '#666' }}>
+            清空本地词库缓存并重新导入内置词库（用于词库更新后未自动生效的情况）。不影响生词本。
+          </p>
+          <button
+            onClick={handleResetDictCache}
+            disabled={resetting}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+              border: '1px solid #ddd', background: resetting ? '#f0f0f0' : 'white',
+              color: resetting ? '#aaa' : '#333', cursor: resetting ? 'not-allowed' : 'pointer', fontSize: '0.85rem'
+            }}
+          >
+            <RotateCcw size={14} /> {resetting ? '正在重置…' : '重置词库缓存'}
+          </button>
+          {resetMsg && <p style={{ margin: '0.75rem 0 0', fontSize: '0.85rem', color: '#319795' }}>{resetMsg}</p>}
         </section>
       </div>
     </div>

@@ -59,3 +59,27 @@ describe('Analyzer Logic - saved base word highlights inflections', () => {
     expect(results.find(r => r.word.toLowerCase() === 'victims')).toBeDefined()
   })
 })
+
+describe('Analyzer Logic - hyphenated compound as a single unit', () => {
+  it('A1: a resolved compound is one match spanning the whole word', () => {
+    const dict = { 'anti-migrant': { word: 'anti-migrant', meaning: '反移民的', cefr: [] } } as any
+    const results = analyzeText('strong anti-migrant rhetoric', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('anti-migrant')
+    expect(results[0].length).toBe('anti-migrant'.length) // 12, includes the hyphen
+  })
+
+  it('A2: an unresolved compound is not split into annotated parts', () => {
+    // Only the part "migrant" is in the dict, not the whole compound.
+    const dict = { migrant: { word: 'migrant', meaning: '移民', cefr: [] } } as any
+    const results = analyzeText('strong anti-migrant rhetoric', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'migrant')).toBeUndefined()
+    expect(results.length).toBe(0)
+  })
+
+  it('A3: a standalone plain word still matches (no regression)', () => {
+    const dict = { migrant: { word: 'migrant', meaning: '移民', cefr: [] } } as any
+    const results = analyzeText('a migrant worker', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'migrant')).toBeDefined()
+  })
+})

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
-import { lookupWordInDB } from '../../common/storage/indexed-db'
+import { lookupWordInDB, getAiCache } from '../../common/storage/indexed-db'
 import { WordExplanation } from '../../common/types'
 import { BookOpen, Plus, Trash2 } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
@@ -57,8 +57,13 @@ export const SelectionPopup = () => {
       
       // Dictionary A (Confusion Map) is now standardized
       const confusionEntry = (confusionMap as Record<string, any>)[lowerText]
-      const localExp = confusionEntry || await lookupWordInDB(text)
-      
+      let localExp: WordExplanation | null = confusionEntry || await lookupWordInDB(text)
+      if (!localExp) {
+        // Reuse a gloss already AI-backfilled on the page (instant, no network).
+        const aiHit = (await getAiCache([lowerText]))[lowerText]
+        if (aiHit) localExp = aiHit as WordExplanation
+      }
+
       const isSaved = vocabulary.some(v => v.word.toLowerCase() === lowerText)
 
       if (isSaved || localExp) {

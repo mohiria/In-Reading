@@ -135,6 +135,25 @@ const importDictionary = async (db: IDBPDatabase<DictionaryDB>, version: number)
   await db.put(STORES.META, { version, lastUpdated: Date.now() }, 'version_info')
 }
 
+/**
+ * Force the local dictionary cache to be refreshable regardless of the
+ * version-greater-than gate: clears the WORDS + AI_CACHE stores and drops the
+ * stored version_info so the next checkAndUpdateDictionary re-imports the bundled
+ * dictionary. Deliberately does NOT touch user_words / saved vocabulary.
+ */
+export const resetDictionaryCache = async () => {
+  const db = await initDB()
+  await db.clear(STORES.WORDS)
+  await db.clear(STORES.AI_CACHE)
+  await db.delete(STORES.META, 'version_info')
+}
+
+/** Reset the cache and immediately re-import the bundled dictionary. */
+export const forceReimportDictionary = async () => {
+  await resetDictionaryCache()
+  await checkAndUpdateDictionary()
+}
+
 export const lookupWordInDB = async (word: string): Promise<WordExplanation | undefined> => {
   const db = await initDB()
   // Surface form first, then lemma / suffix-stripped bases (see getLookupCandidates).
