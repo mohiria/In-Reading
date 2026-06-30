@@ -21,12 +21,12 @@ When AI is enabled (`engine === 'llm'` with an API key) and the device is online
 
 ### Requirement: Backfill candidate selection
 
-Backfill SHALL target only words that remain unresolved after local lookup (including lemma/suffix resolution) and that pass a triviality filter (common-word frequency list, minimum length, excluding likely proper nouns). Already-resolved or trivial words SHALL NOT be sent.
+Backfill SHALL target only words that remain unresolved after local lookup (including lemma/suffix resolution) and that pass a triviality filter: minimum length and excluding likely proper nouns (tokens only ever seen capitalized). Common words are inherently excluded because they are resolved by the local dictionary; no separate frequency list is required.
 
 #### Scenario: Common words are not backfilled
 
 - **WHEN** scanning a page
-- **THEN** words found locally, or present in the common-word list, are not included in the backfill request
+- **THEN** words found locally (common words are in the local dictionary), too-short words, or tokens only ever seen capitalized (likely proper nouns) are not included in the backfill request
 
 ### Requirement: Hyphenated compound words as candidates
 

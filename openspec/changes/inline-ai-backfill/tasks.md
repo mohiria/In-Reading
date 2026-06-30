@@ -1,8 +1,8 @@
 ## 1. 候选筛选 + 连字符（纯逻辑，QA 前置）
 
-- [ ] 1.1 出 `qa/test-design.md`：测试点 = 连字符复合词成候选、unknownHard 筛选（未命中本地 + 非常见词 + 长度 + 排除句中专名）
-- [ ] 1.2 写 Red 单测：候选分词含 `life-threatening`；`selectUnknownHard(candidates, combinedDict, commonSet)` 命中/排除用例
-- [ ] 1.3 实现连字符候选正则（`scanner.ts` 候选收集）+ `selectUnknownHard` 纯函数 + 常见词频表资源；单测转 Green
+- [x] 1.1 出 `qa/test-design.md`：测试点 = 连字符复合词成候选、unknownHard 筛选（未命中本地 + 长度 + 排除疑似专名）
+- [x] 1.2 写 Red 单测（`backfill.test.ts`）：`extractCandidates` 含 `life-threatening`；`selectUnknownHard` 命中/排除用例（已贴断言级 Red）
+- [x] 1.3 实现 `src/content/engine/backfill.ts`（`extractCandidates` 连字符整体+拆分；`selectUnknownHard`=未命中本地+长度≥4+everLower 排除专名）并接入 `scanner.ts` 候选收集；单测 Green。注：不引入独立词频表——常见词本就在本地词库、由 isResolved 排除
 
 ## 2. AI 缓存 store
 

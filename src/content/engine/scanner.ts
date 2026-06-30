@@ -1,6 +1,7 @@
 import { analyzeText } from '../../common/nlp/analyzer'
 import { ProficiencyLevel, WordExplanation } from '../../common/types'
 import { speak } from '../../common/utils/speech'
+import { extractCandidates } from './backfill'
 
 /**
  * Constants & Configuration
@@ -137,8 +138,7 @@ export const scanAndHighlight = async (
   
   while (candidateWalker.nextNode()) {
     const text = candidateWalker.currentNode.nodeValue || ''
-    const matches = text.match(/\b[a-zA-Z]{3,}\b/g)
-    matches?.forEach(w => candidates.add(w.toLowerCase()))
+    for (const w of extractCandidates(text)) candidates.add(w.toLowerCase())
   }
 
   // 2. Batch fetch dictionary data
