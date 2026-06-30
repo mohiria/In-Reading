@@ -12,56 +12,65 @@ const REFRESH_GAP = 2 // Increased sensitivity: show word more frequently (every
  * These are terminal UI elements or hidden areas that never contain readable prose.
  */
 const SKIP_SELECTOR = [
-  'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE', 
+  'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'NOSCRIPT', 'CODE', 'PRE',
   'NAV', 'BUTTON', 'LABEL', 'SELECT', 'OPTION', 'FIELDSET', 'LEGEND',
   'KBD', 'SAMP', 'VAR', 'TIME', 'DATA', 'SVG', 'CANVAS', 'MATH',
   'SUMMARY', 'DIALOG', 'MENU',
-  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="tablist"]', 
+  // Landmark regions that are never article prose.
+  'HEADER', 'FOOTER', 'ASIDE',
+  '[role="navigation"]', '[role="button"]', '[role="menu"]', '[role="tablist"]',
   '[role="tab"]', '[role="tooltip"]', '[role="status"]', '[role="alert"]',
+  '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
   '[aria-hidden="true"]'
 ].join(', ')
 
+// Class tokens that unambiguously mark a UI/navigation container.
+const UI_CLASS_KEYWORDS = ['sidebar', 'navbar', 'menu', 'toc', 'breadcrumb', 'pagination']
+const hasUiClass = (el: HTMLElement): boolean => {
+  const tokens = el.className.toString().toLowerCase().split(/\s+/).filter(Boolean)
+  return tokens.some(t =>
+    t.startsWith('nav-') || UI_CLASS_KEYWORDS.some(k => t === k || t.startsWith(k + '-') || t.endsWith('-' + k))
+  )
+}
+
+// Block-level descendants mark an element as a structural/content wrapper rather
+// than a leaf-ish UI list.
+const BLOCK_SELECTOR =
+  'p, div, section, article, main, aside, header, footer, ul, ol, li, table, blockquote, figure, h1, h2, h3, h4, h5, h6'
+
 /**
  * Heuristic check if an element is likely part of a Navigation/UI area.
+ * Ordered cheap-to-expensive: a class-token check runs on every element, but the
+ * link-density text analysis only runs on leaf-ish containers (no block-level
+ * descendants). Structural/content wrappers descend cheaply, which keeps scanning
+ * roughly linear in DOM size instead of re-serializing each ancestor's subtree.
  */
 const isLikelyUI = (el: HTMLElement): boolean => {
-  const text = el.textContent || ''
-  const trimmedText = text.trim()
-  if (!trimmedText) return false
+  // 1. Cheap, precise class-token match (O(1)). Token-based so 'article-header'
+  //    is NOT treated as UI, while 'sidebar'/'navbar' still are.
+  if (hasUiClass(el)) return true
 
+  // 2. Structural/content wrappers (have block-level descendants) are never UI by
+  //    themselves \u2014 descend and judge their leaf blocks. Avoids O(n^2) subtree scans.
+  if (el.querySelector(BLOCK_SELECTOR)) return false
+
+  const trimmedText = (el.textContent || '').trim()
+  if (!trimmedText) return false
   const totalLen = trimmedText.length
-  const links = el.querySelectorAll('a')
+
   let linkTextLen = 0
-  links.forEach(a => { linkTextLen += (a.textContent?.trim().length || 0) })
-  
-  // Link Density: How much of the text is wrapped in <a> tags?
+  el.querySelectorAll('a').forEach(a => { linkTextLen += (a.textContent?.trim().length || 0) })
   const linkDensity = totalLen > 0 ? linkTextLen / totalLen : 0
-  
-  // Punctuation check: Real prose has sentences.
   const hasPunctuation = /[.,!?;\uff0c\u3002\uff1f\uff01\uff1b]/.test(trimmedText)
 
-  // 1. High-Confidence UI Identification (Navigation/Menus/Lists)
-  // If it's mostly links and doesn't look like a sentence, it's UI.
-  // We use a slightly lower threshold (0.4) to be safer against nav lists.
-  if (linkDensity > 0.4 && !hasPunctuation && totalLen < 2000) {
-    return true
-  }
+  // High-Confidence Prose: long enough, punctuated, not link-dominated.
+  if (totalLen > 40 && hasPunctuation && linkDensity < 0.4) return false
 
-  // 2. High-Confidence Prose Identification
-  // If it's long enough, has punctuation, and isn't dominated by links, it's content.
-  if (totalLen > 40 && hasPunctuation && linkDensity < 0.4) {
-    return false 
-  }
+  // Content landmarks are never pruned by link density (avoids dropping real content).
+  if (el.closest('main, article, [role="main"], [role="article"]')) return false
 
-  // 3. Specific UI Patterns (Keywords + Length)
-  const className = el.className.toString().toLowerCase()
-  const uiKeywords = ['sidebar', 'nav-', 'navbar', 'menu-', 'toc-', 'breadcrumb', 'pagination', 'header', 'footer']
-  if (uiKeywords.some(key => className.includes(key))) {
-    // UI-named containers without prose features are skipped.
-    if (totalLen < 200 && !hasPunctuation) return true
-  }
-
-  // 4. Fallback for very short terminal items (e.g., "Home", "Next")
+  // Link-dominated, unpunctuated terminal lists are UI.
+  if (linkDensity > 0.4 && !hasPunctuation && totalLen < 2000) return true
   if (totalLen < 40 && linkDensity > 0.7) return true
 
   return false

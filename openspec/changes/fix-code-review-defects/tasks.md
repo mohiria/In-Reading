@@ -10,12 +10,13 @@
 
 ## 2. Batch 2 — Scanner content-region filtering
 
-- [ ] 2.1 Restore unconditional skip of `HEADER, FOOTER, ASIDE` and `[role="banner"]`/`[role="contentinfo"]`/`[role="complementary"]` in `SKIP_SELECTOR` (`src/content/engine/scanner.ts`) (#6)
-- [ ] 2.2 Remove `'header'/'footer'` from `uiKeywords` (now covered by 2.1) or switch to word-boundary matching to stop false matches on `article-header` etc. (#7)
-- [ ] 2.3 Tighten `isLikelyUI` rule 1 (link-density) and stop whole-subtree `FILTER_REJECT` of legitimate nested prose (#4)
-- [ ] 2.4 Remove O(n²) work: run the UI heuristic only on block-level container candidates and/or memoize subtree text-length and link counts instead of re-serializing per element (#10)
-- [ ] 2.5 Manually verify on representative pages (BBC article, Wikipedia, page with footer disclaimer, sidebar summary, reference/citation list); confirm prose annotated, landmarks skipped, lists not dropped, no jank
-- [ ] 2.6 Run `npm run build` + `npm test`; commit Batch 2
+- [x] 2.0 QA 前置：`qa/test-design-batch2.md` + Red 测试（B2-1/B2-3/B2-5 断言级 Red，已贴输出）
+- [x] 2.1 Restore unconditional skip of `HEADER, FOOTER, ASIDE` and `[role="banner"]`/`[role="contentinfo"]`/`[role="complementary"]` in `SKIP_SELECTOR` (`src/content/engine/scanner.ts`) (#6)
+- [x] 2.2 类名按 token 精确匹配（`hasUiClass`，去掉 header/footer），停止误伤 `article-header` (#7)
+- [x] 2.3 内容地标（main/article）豁免链接密度整块拒绝，停止丢弃真实内容 (#4)
+- [x] 2.4 isLikelyUI 仅对无块级后代的 leaf-ish 容器做链接密度分析（`BLOCK_SELECTOR` 短路），结构 wrapper 廉价下降，去 O(n²) (#10)
+- [ ] 2.5 Manually verify on representative pages (BBC article, Wikipedia, page with footer disclaimer, sidebar summary, reference/citation list) — 归入 Batch 5.2 端到端手动验证
+- [x] 2.6 Run `npm run build` + `npm test`（29/29 通过，构建通过）; commit Batch 2
 
 ## 3. Batch 3 — Inflected-word coverage
 
