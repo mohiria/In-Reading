@@ -1,12 +1,18 @@
 import React, { useState } from 'react'
 import { ProficiencyLevel, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
+import { useVocabulary } from '../common/hooks/useVocabulary'
 import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
-import { Cpu, Settings, Globe, Check } from 'lucide-react'
+import { groupByAddedTime } from '../common/utils/vocab'
+import { toCSV, downloadCSV } from '../common/utils/export'
+import { formatIPA } from '../common/utils/format'
+import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download } from 'lucide-react'
 
 export const Options = () => {
   const { settings, updateSettings, loading } = useSettings()
+  const { vocabulary, removeWord } = useVocabulary()
   const [savedStatus, setSavedStatus] = useState(false)
+  const [vocabQuery, setVocabQuery] = useState('')
 
   const handleUpdate = async (updates: any) => {
     await updateSettings(updates)
@@ -145,6 +151,65 @@ export const Options = () => {
               style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd' }}
             />
           </div>
+        </section>
+
+        <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOpen size={20} /> 生词本 ({vocabulary.length})
+            </h2>
+            <button
+              onClick={() => vocabulary.length && downloadCSV(`in-reading-vocab-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(vocabulary))}
+              disabled={vocabulary.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+                border: '1px solid #ddd', background: vocabulary.length ? 'white' : '#f0f0f0',
+                color: vocabulary.length ? '#333' : '#aaa', cursor: vocabulary.length ? 'pointer' : 'not-allowed', fontSize: '0.85rem'
+              }}
+            >
+              <Download size={14} /> 导出 CSV (Anki/Excel)
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={vocabQuery}
+            onChange={(e) => setVocabQuery(e.target.value)}
+            placeholder="搜索单词或释义…"
+            style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd', marginBottom: '1rem' }}
+          />
+
+          {(() => {
+            const q = vocabQuery.trim().toLowerCase()
+            const filtered = q
+              ? vocabulary.filter(v => v.word.toLowerCase().includes(q) || (v.meaning || '').toLowerCase().includes(q))
+              : vocabulary
+            const groups = groupByAddedTime(filtered)
+            if (groups.length === 0) {
+              return <p style={{ color: '#999', textAlign: 'center', margin: '1.5rem 0' }}>{vocabulary.length === 0 ? '还没有收藏生词。' : '没有匹配的生词。'}</p>
+            }
+            return groups.map(group => (
+              <div key={group.key} style={{ marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'bold', marginBottom: '0.5rem' }}>{group.label} ({group.words.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {group.words.map(item => (
+                    <div key={item.word} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', background: 'white', borderRadius: '4px', border: '1px solid #eee'
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontWeight: 'bold' }}>{item.word}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '8px' }}>{formatIPA(item.ipa)} {item.meaning}</span>
+                      </div>
+                      <button onClick={() => removeWord(item.word)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb' }} title="删除">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          })()}
         </section>
       </div>
     </div>

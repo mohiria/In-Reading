@@ -239,12 +239,20 @@ export const Popup = () => {
 
   const VocabTab = () => (
     <div style={{ animation: 'fadeIn 0.2s' }}>
-      <h3 style={{ fontSize: '0.95rem', marginBottom: '0.8rem' }}>Saved Words ({vocabulary.length})</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+        <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Saved Words ({vocabulary.length})</h3>
+        <button
+          onClick={() => chrome.runtime.openOptionsPage()}
+          style={{ background: 'none', border: 'none', color: '#4b8bf5', cursor: 'pointer', fontSize: '0.8rem' }}
+        >
+          查看全部 / 导出
+        </button>
+      </div>
       {vocabulary.length === 0 ? (
         <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {vocabulary.slice(0, 20).map((item) => (
+          {vocabulary.map((item) => (
             <div key={item.word} style={{ 
               fontSize: '0.85rem', padding: '8px', backgroundColor: '#f9f9f9', 
               borderRadius: '4px', display: 'flex', justifyContent: 'space-between', border: '1px solid #eee'
