@@ -31,6 +31,10 @@
 - codex（本机，已认证）只读分块、产出 `{index,corrected}`，**不写仓库**；最终改动由确定性脚本 `apply-fixes.cjs` 按 index 仅改 translation 产生，`git diff` 可逐条审。
 - 抽样人工复核 codex 译文（appear/apple/appetite 锚点 + chunk-01 前 8 条空译填充）均与 definition 相符、简明准确。
 
+## 附带修复：词库重导竞态（致页面不刷新）
+
+排查「页面 appear 仍显示旧译」时定位到 `dictionary-service.ts:11` 的 `checkAndUpdateDictionary()` 为 fire-and-forget：版本提升后，`content/index.tsx` 的首次 `runScan` 跑在重导（clear + 重写 ~5k 词）之前，读到旧 IndexedDB 数据。改为 `await`，首次扫描即用新数据；版本未变时仅多一次 version.json 拉取，开销可忽略；失败仍降级到既有库。非 TDD 例外：jsdom 无 IndexedDB / 无 `chrome.runtime.getURL` fetch，竞态属集成时序，靠 5.2 手动（重载扩展+页面一次，appear 显示「出现」）验证。
+
 ## 剩余风险 / 未决
 
 - 4.2 手动验证（加载 dist 实读页面）待用户确认。

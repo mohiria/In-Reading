@@ -7,8 +7,10 @@ import { checkAndUpdateDictionary, initDB } from './indexed-db'
 export const initDictionaryService = async () => {
   try {
     await initDB()
-    // Fire and forget update check
-    checkAndUpdateDictionary().catch(err => console.error('Dictionary background update failed', err))
+    // Await the update check so the first scan after a dictionary version bump
+    // reads fresh data (the re-import clears + rewrites ~5k words). A failed
+    // check is non-fatal — fall through to whatever is already in IndexedDB.
+    await checkAndUpdateDictionary().catch(err => console.error('Dictionary update check failed', err))
   } catch (e) {
     console.error('Failed to initialize dictionary service:', e)
   }
