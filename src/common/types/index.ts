@@ -51,6 +51,8 @@ export interface WordExplanation {
   ipa?: string
   ipa_us?: string
   ipa_uk?: string
+  phon_br?: string // confusion-map UK pronunciation field
+  phon_n_am?: string // confusion-map US pronunciation field
   meaning: string
   context?: string
   cefr?: string | string[] // Standardized field for level

@@ -82,8 +82,9 @@ const checkDifficulty = (entry: WordExplanation, userLevel: ProficiencyLevel): b
   if (levels.length === 0) return true
   
   const wordRanks = levels.map(l => TAG_LEVEL_MAP[l.toLowerCase() as DictTag] || 3)
-  const maxDifficulty = Math.max(...wordRanks)
+  // Gate by the easiest sense: a word with a common easy meaning is treated as known.
+  const minDifficulty = Math.min(...wordRanks)
   const userRank = USER_LEVEL_RANK[userLevel]
-  
-  return maxDifficulty >= userRank
+
+  return minDifficulty >= userRank
 }
