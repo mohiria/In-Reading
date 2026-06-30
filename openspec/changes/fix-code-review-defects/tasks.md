@@ -38,5 +38,5 @@
 ## 5. Final verification
 
 - [x] 5.1 Full `npm run build` + `npm test` green（38/38，构建通过）
-- [ ] 5.2 Load `dist/` in Chrome and walk the per-batch verification lists end-to-end (IPA, no over-annotation, landmarks skipped, lists preserved, inflected words, no garbage glosses, long TTS, no jank) — 需用户在浏览器操作，我无法 headless 运行扩展
-- [ ] 5.3 Archive the change with `/opsx:archive`（待 5.2 通过后）
+- [x] 5.2 Load `dist/` in Chrome and walk the per-batch verification lists end-to-end — 用户已在浏览器实测确认闭环（插件功能正常）
+- [x] 5.3 Archive the change with `/opsx:archive`
