@@ -6098,7 +6098,7 @@
     "cefr": [
       "a1"
     ],
-    "meaning": "v. 做; a. ",
+    "meaning": "v. 做; v. （助动词）",
     "source": "core-confusion",
     "entries": [
       {
@@ -6106,7 +6106,7 @@
         "cefr": "a1",
         "phon_br": "/duː/",
         "phon_n_am": "/duː/",
-        "translation": "做（用于指代你未指名或不知道的动作）",
+        "translation": "做",
         "definition": "used to refer to actions that you do not mention by name or do not know about"
       },
       {
@@ -6114,7 +6114,7 @@
         "cefr": "a1",
         "phon_br": "/də/",
         "phon_n_am": "/də/",
-        "translation": "（助动词）（用于实义动词前构成否定句和疑问句）",
+        "translation": "（助动词）",
         "definition": "used before a full verb to form negative sentences and questions"
       }
     ]
@@ -10094,7 +10094,7 @@
       "a1",
       "a2"
     ],
-    "meaning": "v. 有; a. ",
+    "meaning": "v. 有; v. （助动词）",
     "source": "core-confusion",
     "phon_br": "/həv/",
     "phon_n_am": "/həv/",
@@ -10104,7 +10104,7 @@
         "cefr": "a1",
         "phon_br": "/həv/",
         "phon_n_am": "/həv/",
-        "translation": "有（拥有、持有或具有某物）",
+        "translation": "有",
         "definition": "to own, hold or possess something"
       },
       {
@@ -10112,7 +10112,7 @@
         "cefr": "a2",
         "phon_br": "/həv/",
         "phon_n_am": "/həv/",
-        "translation": "（助动词）（与过去分词连用构成完成时态）",
+        "translation": "（助动词）",
         "definition": "used with the past participle to form perfect tenses"
       }
     ]
@@ -11717,7 +11717,7 @@
     "cefr": [
       "c1"
     ],
-    "meaning": "a. ; n. 后者",
+    "meaning": "a. 后者的; n. 后者",
     "source": "core-confusion",
     "phon_br": "/ˈlætə(r)/",
     "phon_n_am": "/ˈlætər/",
@@ -11727,7 +11727,7 @@
         "cefr": "c1",
         "phon_br": "/ˈlætə(r)/",
         "phon_n_am": "/ˈlætər/",
-        "translation": "（两者中的）后者（用于指代提到的两物或两人中的第二个）",
+        "translation": "后者的",
         "definition": "used to refer to the second of two things or people mentioned"
       },
       {
@@ -11735,7 +11735,7 @@
         "cefr": "c1",
         "phon_br": "/ˈlætə(r)/",
         "phon_n_am": "/ˈlætər/",
-        "translation": "后者（提到的两物或两人中的第二个）",
+        "translation": "后者",
         "definition": "the second of two things or people mentioned"
       }
     ]
@@ -14240,7 +14240,7 @@
       "a1",
       "b1"
     ],
-    "meaning": "n. 需要; v. 需要; m. ",
+    "meaning": "n. 需要; v. 需要; v. （情态）需要",
     "source": "core-confusion",
     "phon_br": "/niːd/",
     "phon_n_am": "/niːd/",
@@ -14250,7 +14250,7 @@
         "cefr": "a2",
         "phon_br": "/niːd/",
         "phon_n_am": "/niːd/",
-        "translation": "需要（某事必须执行或必要的情况）",
+        "translation": "需要",
         "definition": "a situation when something is necessary or must be done"
       },
       {
@@ -14258,7 +14258,7 @@
         "cefr": "a1",
         "phon_br": "/niːd/",
         "phon_n_am": "/niːd/",
-        "translation": "需要（需要某物/某人，因其必不可少或非常重要）",
+        "translation": "需要",
         "definition": "to require something/somebody because they are essential or very important, not just because you would like to have them"
       },
       {
@@ -14266,7 +14266,7 @@
         "cefr": "b1",
         "phon_br": "/niːd/",
         "phon_n_am": "/niːd/",
-        "translation": "（情态动词）需要（用于说明某事不必执行或询问是否必要）",
+        "translation": "（情态）需要",
         "definition": "used to state that something is/was not necessary or that only very little is/was necessary; used to ask if something is/was necessary"
       }
     ]
@@ -14932,7 +14932,7 @@
     "cefr": [
       "a1"
     ],
-    "meaning": "d. 一; n. 一; p. ",
+    "meaning": "d. 一; num. 一; p. （代词）一个",
     "source": "core-confusion",
     "phon_br": "/wʌn/",
     "phon_n_am": "/wʌn/",
@@ -14942,7 +14942,7 @@
         "cefr": "a1",
         "phon_br": "/wʌn/",
         "phon_n_am": "/wʌn/",
-        "translation": "一（数字1）",
+        "translation": "一",
         "definition": "the number 1"
       },
       {
@@ -14950,7 +14950,7 @@
         "cefr": "a1",
         "phon_br": "/wʌn/",
         "phon_n_am": "/wʌn/",
-        "translation": "一（数字1）",
+        "translation": "一",
         "definition": "the number 1"
       },
       {
@@ -14958,7 +14958,7 @@
         "cefr": "a1",
         "phon_br": "/wʌn/",
         "phon_n_am": "/wʌn/",
-        "translation": "（代词）一个（用于避免名词重复，指代已提到或已知的人或物）",
+        "translation": "（代词）一个",
         "definition": "used to avoid repeating a noun, when you are referring to somebody/something that has already been mentioned, or that the person you are speaking to knows about"
       }
     ]
@@ -22618,7 +22618,7 @@
       "b1",
       "a1"
     ],
-    "meaning": "a. 那么; c. ; d. 那个; p. 那个",
+    "meaning": "a. 那么; c. （连词）引导从句; d. 那个; p. 那个",
     "source": "core-confusion",
     "entries": [
       {
@@ -22626,7 +22626,7 @@
         "cefr": "b1",
         "phon_br": "/ðæt/",
         "phon_n_am": "/ðæt/",
-        "translation": "那么（到那种程度；那么）",
+        "translation": "那么",
         "definition": "to such a degree; so"
       },
       {
@@ -22634,7 +22634,7 @@
         "cefr": "a1",
         "phon_br": "/ðət/",
         "phon_n_am": "/ðət/",
-        "translation": "（连词）那（用于动词、形容词或名词后引导句子的新部分）",
+        "translation": "（连词）引导从句",
         "definition": "used after some verbs, adjectives and nouns to introduce a new part of the sentence"
       },
       {
@@ -22642,7 +22642,7 @@
         "cefr": "a1",
         "phon_br": "/ðæt/",
         "phon_n_am": "/ðæt/",
-        "translation": "那个（指代离说话者较远的人或物）",
+        "translation": "那个",
         "definition": "used for referring to a person or thing that is not near the speaker or as near to the speaker as another"
       },
       {
@@ -22650,7 +22650,7 @@
         "cefr": "a1",
         "phon_br": "/ðæt/",
         "phon_n_am": "/ðæt/",
-        "translation": "那个（指代离说话者较远的人或物）",
+        "translation": "那个",
         "definition": "used for referring to a person or thing that is not near the speaker, or not as near to the speaker as another"
       }
     ]
@@ -22981,7 +22981,7 @@
     "cefr": [
       "a1"
     ],
-    "meaning": "i. ; p. 到，向",
+    "meaning": "i. （不定式标志）; p. 到，向",
     "source": "core-confusion",
     "phon_br": "/tə/",
     "phon_n_am": "/tə/",
@@ -22991,7 +22991,7 @@
         "cefr": "a1",
         "phon_br": "/tə/",
         "phon_n_am": "/tə/",
-        "translation": "（不定式标志）（用于表示目的或意图）",
+        "translation": "（不定式标志）",
         "definition": "used to show purpose or intention"
       },
       {
@@ -22999,7 +22999,7 @@
         "cefr": "a1",
         "phon_br": "/tə/",
         "phon_n_am": "/tə/",
-        "translation": "到，向（朝向某物或某方向）",
+        "translation": "到，向",
         "definition": "in the direction of something; towards something"
       }
     ]

@@ -28,6 +28,13 @@ describe('confusion-map data integrity (#5)', () => {
     })
     expect(allEmpty).toEqual([])
   })
+
+  it('B4-5: no stored meaning has a dangling POS marker (abbreviation with no gloss)', () => {
+    const dangling = Object.keys(cm).filter(w =>
+      (cm[w].meaning || '').split(';').some((seg: string) => /^\s*[a-z]+\.\s*$/i.test(seg))
+    )
+    expect(dangling).toEqual([])
+  })
 })
 
 describe('inflections.json POS-correctness (#8)', () => {

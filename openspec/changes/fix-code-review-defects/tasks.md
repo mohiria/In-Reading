@@ -33,7 +33,7 @@
 - [x] 4.3 26 词中文短译（LLM 草稿，用户已校对）(#5)
 - [x] 4.4 写入 `entries[].translation` 并按现有格式重算 `meaning`（`public/dictionaries/confusion-map.json`）
 - [x] 4.5 校对：全库 0 个全空译文、坏变形已清除；`npm test`（37/37）+ `npm run build` 通过; commit Batch 4
-- [ ] 4.6 （新发现，超出约定范围）7 词 do/have/latter/need/one/that/to 的 stored meaning 仍有悬空词性符——需同 26 词流程补短译，待用户决定
+- [x] 4.6 （追加）7 词 do/have/latter/need/one/that/to 悬空 meaning：加强断言 B4-5（Red）→ 用户校对短译写入并重算 meaning（Green）；全库 0 悬空词性符，全量 38/38
 
 ## 5. Final verification
 

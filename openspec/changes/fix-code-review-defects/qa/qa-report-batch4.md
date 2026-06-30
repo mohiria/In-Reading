@@ -36,15 +36,15 @@ OpenSpec change `fix-code-review-defects`，Batch 4：
 - 全量 `npm test`：**37 passed / 0 failed（13 文件）**，无回归。
 - 构建 `npm run build`：通过。
 
-## 新发现（超出本批约定范围，建议后续处理）
+## 追加（新发现，用户校对后已修复）
 
-扫描 `meaning` 发现 **7 个词的 stored meaning 仍有悬空词性符**：`do`("v. 做; a. ")、`have`、`latter`、`need`、`one`、`that`、`to`。
+扫描 `meaning` 发现 **7 个词 stored meaning 有悬空词性符**：`do`("v. 做; a. ")、`have`、`latter`、`need`、`one`、`that`、`to`。性质同 #5（用户可见悬空 `a.`/`p.`），但其 `entries[].translation` 实际非空、是 stored `meaning` 过时，且原 entries 译文冗长，需单独撰写短译。
 
-- 性质：与 #5 同类的用户可见缺陷（注解显示悬空 `a.`/`p.`），但**不属约定的 26 词**（这 26 词是「所有 sense 译文全空」；这 7 词的 `entries[].translation` 实际非空，是 stored `meaning` 字符串过时）。
-- 不能直接重算修复：这 7 词 `entries[].translation` 是冗长解释（如 `做（用于指代…）`），直接重算会得到过长 meaning，污染行内注解；需像 26 词一样**单独撰写短译 + 人工校对**。
-- 多为 A1 功能词（do/have/that/to/one），实际很少被注解；`latter`/`need` 稍高。
-- 建议：作为本 change 的小幅追加，或单列新 change，按相同 human-review 流程补这 7 词短译；届时再把 B4-2 断言加强为「无悬空词性符」。
+处置（同 26 词的 human-review 流程）：
+- 加强断言 **B4-5**「无 stored meaning 含悬空词性符」→ Red（7 词命中）。
+- 用户校对 7 词短译后写入 `entries[].translation`（按词性顺序），重算 `meaning`，如 `one`→`"d. 一; num. 一; p. （代词）一个"`、`to`→`"i. （不定式标志）; p. 到，向"`。abbr 补 `num.`(number)/`i.`(particle)/`c.`(conjunction)。
+- Green：B4-5 通过；全量 **38 passed**、构建通过。
 
 ## 结论
 
-Batch 4 约定范围（#8 + #5 的 26 词）Red→Green，全量套件与构建通过，inflections 重生成 diff 已核对、真实名词复数无误删。质量门通过。新发现 7 词悬空 meaning 已记录，留待用户决定后续。
+Batch 4（#8 + #5 的 26 词 + 追加 7 词悬空 meaning）Red→Green，全量套件与构建通过，inflections 重生成 diff 已核对、真实名词复数无误删。全库 0 个全空译文、0 个悬空词性符。质量门通过。
