@@ -140,7 +140,8 @@ export const scanAndHighlight = async (
   dbLookup?: (words: string[]) => Promise<Record<string, WordExplanation>>,
   shouldClear: boolean = false,
   showIPA: boolean = true,
-  backfill?: BackfillFn
+  backfill?: BackfillFn,
+  knownWords: Set<string> = new Set()
 ) => {
   if (shouldClear) clearHighlights(root)
 
@@ -171,12 +172,12 @@ export const scanAndHighlight = async (
   }
 
   // 3. Phase 1 — local annotation (immediate, unchanged behavior)
-  annotateBlocks(root, level, vocabulary, combinedDict, pronunciation, showIPA)
+  annotateBlocks(root, level, vocabulary, combinedDict, pronunciation, showIPA, knownWords)
 
   // 4. Phase 2 — opt-in online backfill of locally-uncovered words. Skipped
   //    entirely when no backfill fn is injected (AI off / offline) → local-only.
   if (!backfill) return
-  await runBackfill(root, level, pronunciation, showIPA, combinedDict, candidates, everLower, contextMap, backfill)
+  await runBackfill(root, level, pronunciation, showIPA, combinedDict, candidates, everLower, contextMap, backfill, knownWords)
 }
 
 /**
@@ -189,7 +190,8 @@ const annotateBlocks = (
   vocabulary: Set<string>,
   dict: Record<string, WordExplanation>,
   pronunciation: 'UK' | 'US',
-  showIPA: boolean
+  showIPA: boolean,
+  knownWords: Set<string> = new Set()
 ) => {
   const walker = createOptimizedWalker(root, (el) => el.classList.contains('ll-word-container'))
 
@@ -215,7 +217,7 @@ const annotateBlocks = (
   blocks.forEach((block, blockIndex) => {
     const seenInBlock = new Set<string>()
     blockMap.get(block)?.forEach(node => {
-      processTextNode(node, level, vocabulary, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock)
+      processTextNode(node, level, vocabulary, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock, knownWords)
     })
   })
 }
@@ -235,11 +237,14 @@ const runBackfill = async (
   candidates: Set<string>,
   everLower: Set<string>,
   contextMap: Map<string, string>,
-  backfill: BackfillFn
+  backfill: BackfillFn,
+  knownWords: Set<string> = new Set()
 ) => {
   // Resolved locally if it is in the merged dict or the confusion map (incl. lemma).
   const isResolved = (w: string) => !!combinedDict[w] || getLemmaKeys(w).some(k => !!confusionMap[k])
-  const unknownHard = selectUnknownHard(Array.from(candidates), { isResolved, everLower })
+  // Don't backfill words the user already marked as known.
+  const pool = Array.from(candidates).filter(w => !knownWords.has(w))
+  const unknownHard = selectUnknownHard(pool, { isResolved, everLower })
   if (unknownHard.length === 0) return
 
   const targets = unknownHard.slice(0, MAX_BACKFILL)
@@ -278,7 +283,7 @@ const runBackfill = async (
 
   // Re-annotate: backfill-only dict + empty vocabulary so existing local/saved
   // annotations are untouched and only the newly-resolved words get added.
-  annotateBlocks(root, level, new Set<string>(), backfillDict, pronunciation, showIPA)
+  annotateBlocks(root, level, new Set<string>(), backfillDict, pronunciation, showIPA, knownWords)
 }
 
 /**
@@ -293,12 +298,13 @@ const processTextNode = (
   showIPA: boolean,
   stateMap: Map<string, WordState>,
   blockIndex: number,
-  seenInBlock: Set<string>
+  seenInBlock: Set<string>,
+  knownWords: Set<string> = new Set()
 ) => {
   const text = node.nodeValue
   if (!text?.trim()) return
 
-  const matches = analyzeText(text, level, vocabulary, dict, pronunciation)
+  const matches = analyzeText(text, level, vocabulary, dict, pronunciation, undefined, knownWords)
   if (matches.length === 0) return
 
   const fragment = document.createDocumentFragment()

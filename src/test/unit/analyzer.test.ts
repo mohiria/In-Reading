@@ -60,6 +60,25 @@ describe('Analyzer Logic - saved base word highlights inflections', () => {
   })
 })
 
+describe('Analyzer Logic - known-words whitelist suppresses annotation', () => {
+  const dict = { obscure: { word: 'obscure', meaning: '晦涩的', cefr: ['c1'] } } as any
+
+  it('K1: a hard word in knownWords is not annotated', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(), dict, 'US', {}, new Set(['obscure']))
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeUndefined()
+  })
+
+  it('K2: a saved word is still annotated even if also marked known (saved wins)', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(['obscure']), dict, 'US', {}, new Set(['obscure']))
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeDefined()
+  })
+
+  it('K3: a hard word NOT in knownWords is still annotated (no regression)', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(), dict, 'US', {}, new Set())
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeDefined()
+  })
+})
+
 describe('Analyzer Logic - hyphenated compound as a single unit', () => {
   it('A1: a resolved compound is one match spanning the whole word', () => {
     const dict = { 'anti-migrant': { word: 'anti-migrant', meaning: '反移民的', cefr: [] } } as any

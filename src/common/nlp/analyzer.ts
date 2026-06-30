@@ -17,7 +17,8 @@ export const analyzeText = (
   vocabulary: Set<string> = new Set(),
   dict: Record<string, WordExplanation> = {},
   pronunciation: 'UK' | 'US' = 'US',
-  confusionMap: Record<string, any> = defaultConfusionMap
+  confusionMap: Record<string, any> = defaultConfusionMap,
+  knownWords: Set<string> = new Set()
 ): IdentifiedWord[] => {
   const results: IdentifiedWord[] = []
   // Hyphen-aware: a hyphenated alphabetic compound (anti-migrant) is matched as a
@@ -62,9 +63,13 @@ export const analyzeText = (
     // highlights its inflected forms (victims).
     const resolvedWord = (explanation.word || '').toLowerCase()
     const isSavedWord = vocabulary.has(baseWord) || vocabulary.has(lowerWord) || (!!resolvedWord && vocabulary.has(resolvedWord))
+    // Words the user marked as known suppress the difficulty path (but an explicit
+    // save still wins). Three-form check mirrors isSavedWord so a known base also
+    // covers its inflections.
+    const isKnown = knownWords.has(baseWord) || knownWords.has(lowerWord) || (!!resolvedWord && knownWords.has(resolvedWord))
     const isHardEnough = checkDifficulty(explanation, userLevel)
-    
-    if (isSavedWord || isHardEnough) {
+
+    if (isSavedWord || (isHardEnough && !isKnown)) {
       results.push({
         word,
         index: match.index,

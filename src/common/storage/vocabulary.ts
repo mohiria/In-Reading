@@ -9,6 +9,15 @@ export const getVocabulary = async (): Promise<SavedWord[]> => {
 }
 
 export const addToVocabulary = async (word: SavedWord): Promise<void> => {
+  // Mutual exclusion: saving a word removes it from the known-words list.
+  // Inlined (not importing knownWords.ts) to avoid a circular import.
+  const lower = word.word.toLowerCase()
+  const knownData = await chrome.storage.local.get('knownWords')
+  const known: string[] = knownData.knownWords || []
+  if (known.includes(lower)) {
+    await chrome.storage.local.set({ knownWords: known.filter(w => w !== lower) })
+  }
+
   const current = await getVocabulary()
   // Avoid duplicates in the list
   if (current.some(w => w.word.toLowerCase() === word.word.toLowerCase())) {

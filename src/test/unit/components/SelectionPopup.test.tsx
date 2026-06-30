@@ -50,6 +50,11 @@ vi.mock('../../../common/hooks/useVocabulary', () => ({
   useVocabulary: () => ({ vocabulary: [], addWord: vi.fn(), removeWord: vi.fn() })
 }))
 
+const { mockAddKnown } = vi.hoisted(() => ({ mockAddKnown: vi.fn() }))
+vi.mock('../../../common/hooks/useKnownWords', () => ({
+  useKnownWords: () => ({ knownWords: [], addKnown: mockAddKnown, removeKnown: vi.fn(), loading: false })
+}))
+
 vi.mock('../../../common/storage/indexed-db', () => ({
   lookupWordInDB: vi.fn().mockResolvedValue(null),
   batchLookupWords: vi.fn().mockResolvedValue({}),
@@ -113,6 +118,17 @@ describe('SelectionPopup Standardization', () => {
       expect.objectContaining({ type: 'TRANSLATE_WORD' }),
       expect.anything()
     )
+  })
+
+  it('K5: clicking "mark as known" calls addKnown with the selected word', async () => {
+    // default selection is 'tear' (confusion-map hit → popup renders with buttons)
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+    const btn = await screen.findByText(/标记已掌握/)
+    await act(async () => { btn.click() })
+    expect(mockAddKnown).toHaveBeenCalledWith('tear')
   })
 
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {

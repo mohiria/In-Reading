@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { scanAndHighlight, clearHighlights, unhighlightWord } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
+import { getKnownWords } from '../common/storage/knownWords'
 import { initDictionaryService } from '../common/storage/dictionary-service'
 import { batchLookupWords } from '../common/storage/indexed-db'
 import { Overlay } from './components/Overlay'
@@ -33,9 +34,10 @@ const runScan = async (forceClear = false) => {
   isScanning = true
 
   try {
-    const [settings, vocabList] = await Promise.all([getSettings(), getVocabulary()])
+    const [settings, vocabList, knownList] = await Promise.all([getSettings(), getVocabulary(), getKnownWords()])
     const vocabSet = new Set(vocabList.map(v => v.word.toLowerCase()))
     const vocabMap = Object.fromEntries(vocabList.map(v => [v.word.toLowerCase(), v]))
+    const knownSet = new Set(knownList.map(w => w.toLowerCase()))
 
     // Opt-in online backfill: only when AI is configured and the device is online.
     const shouldBackfill = settings.engine === 'llm' && !!settings.llm?.apiKey && navigator.onLine
@@ -48,7 +50,7 @@ const runScan = async (forceClear = false) => {
 
     await scanAndHighlight(
       document.body, settings.proficiency, vocabSet, vocabMap,
-      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn
+      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn, knownSet
     )
   } finally {
     isScanning = false
@@ -168,6 +170,18 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
       // Removed words
       const removed = oldVocab.filter(ov => !newVocab.some(nv => nv.word === ov.word))
       removed.forEach(item => unhighlightWord(item.word, document.body))
+    }
+  } else if (area === 'local' && changes.knownWords && tabEnabled) {
+    // Known-words is the inverse of vocabulary: a newly-known word should lose its
+    // annotation immediately; an un-marked word should become annotatable again.
+    const oldKnown = (changes.knownWords.oldValue || []) as string[]
+    const newKnown = (changes.knownWords.newValue || []) as string[]
+    const added = newKnown.filter(w => !oldKnown.includes(w))
+    if (added.length > 0) {
+      added.forEach(w => unhighlightWord(w, document.body))
+    } else {
+      // A word was un-marked (or the list otherwise shrank) → re-scan to restore it.
+      runScan(true)
     }
   }
 })

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
+import { useKnownWords } from '../../common/hooks/useKnownWords'
 import { lookupWordInDB, getAiCache, putAiCache } from '../../common/storage/indexed-db'
 import { WordExplanation } from '../../common/types'
-import { BookOpen, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Plus, Trash2, Check } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
@@ -11,6 +12,7 @@ import confusionMap from '../../../public/dictionaries/confusion-map.json'
 export const SelectionPopup = () => {
   const { settings } = useSettings()
   const { vocabulary, addWord, removeWord } = useVocabulary()
+  const { knownWords, addKnown, removeKnown } = useKnownWords()
   const [loading, setLoading] = useState(false)
   const [tabEnabled, setTabEnabled] = useState(false)
   const [selection, setSelection] = useState<{
@@ -114,6 +116,18 @@ export const SelectionPopup = () => {
       await removeWord(selection.text)
     } else {
       await addWord({ ...selection.explanation, timestamp: Date.now(), sourceUrl: window.location.href })
+    }
+    setTimeout(() => setSelection(null), 300)
+  }
+
+  const onToggleKnown = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!selection) return
+    const lower = selection.text.toLowerCase()
+    if (knownWords.includes(lower)) {
+      await removeKnown(selection.text)
+    } else {
+      await addKnown(selection.text)
     }
     setTimeout(() => setSelection(null), 300)
   }
@@ -252,6 +266,21 @@ export const SelectionPopup = () => {
             }}
           >
             {selection.isSaved ? <><Trash2 size={14} /> Remove</> : <><Plus size={14} /> Add to Vocabulary</>}
+          </button>
+
+          <button
+            onClick={onToggleKnown}
+            style={{
+              width: '100%', padding: '8px',
+              backgroundColor: 'transparent',
+              color: knownWords.includes(selection.text.toLowerCase()) ? '#319795' : '#888',
+              border: '1px solid #ddd',
+              borderRadius: '6px', cursor: 'pointer', marginTop: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '6px', fontWeight: '500', fontSize: '13px'
+            }}
+          >
+            <Check size={14} /> {knownWords.includes(selection.text.toLowerCase()) ? '取消已掌握' : '标记已掌握'}
           </button>
         </div>
       )}

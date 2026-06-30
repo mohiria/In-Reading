@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ProficiencyLevel, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
+import { useKnownWords } from '../common/hooks/useKnownWords'
 import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
 import { toCSV, downloadCSV } from '../common/utils/export'
@@ -12,8 +13,10 @@ import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download, RotateCcw } fr
 export const Options = () => {
   const { settings, updateSettings, loading } = useSettings()
   const { vocabulary, removeWord } = useVocabulary()
+  const { knownWords, removeKnown } = useKnownWords()
   const [savedStatus, setSavedStatus] = useState(false)
   const [vocabQuery, setVocabQuery] = useState('')
+  const [knownQuery, setKnownQuery] = useState('')
   const [resetting, setResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState('')
 
@@ -226,6 +229,46 @@ export const Options = () => {
                 </div>
               </div>
             ))
+          })()}
+        </section>
+
+        <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
+          <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Check size={20} /> 已掌握 ({knownWords.length})
+          </h2>
+          <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: '#666' }}>
+            标记为已掌握的词不再被注解（仍可划词主动查询）。在阅读时划词点「标记已掌握」加入。
+          </p>
+
+          <input
+            type="text"
+            value={knownQuery}
+            onChange={(e) => setKnownQuery(e.target.value)}
+            placeholder="搜索已掌握的词…"
+            style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd', marginBottom: '1rem' }}
+          />
+
+          {(() => {
+            const q = knownQuery.trim().toLowerCase()
+            const filtered = q ? knownWords.filter(w => w.includes(q)) : knownWords
+            if (filtered.length === 0) {
+              return <p style={{ color: '#999', textAlign: 'center', margin: '1.5rem 0' }}>{knownWords.length === 0 ? '还没有标记已掌握的词。' : '没有匹配的词。'}</p>
+            }
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {filtered.map(word => (
+                  <div key={word} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 10px', background: 'white', borderRadius: '4px', border: '1px solid #eee'
+                  }}>
+                    <span style={{ fontWeight: 'bold' }}>{word}</span>
+                    <button onClick={() => removeKnown(word)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb' }} title="移除（恢复注解）">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
           })()}
         </section>
 
