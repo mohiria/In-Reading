@@ -27,11 +27,13 @@
 
 ## 4. Batch 4 — Data & build-script fixes
 
-- [ ] 4.1 Change POS detection in `scripts/sync-inflections.ts` to exact match (`e.type === 'verb'` / `=== 'noun'`) (#8)
-- [ ] 4.2 Clean confusion-derived bad forms from `src/common/nlp/inflections.json` and regenerate cleanly (do not rely on additive re-run); diff to confirm only adverb→verb / pronoun→noun forms removed
-- [ ] 4.3 Draft Chinese short translations (LLM) for the 26 empty-gloss words (acid, across, act, below, bend, benefit, besides, best, bet, better, between, beyond, bid, bill, bite, black, blame, blank, blast, blend, block, blow, blue, board, bomb, book) and get human review before write-back (#5)
-- [ ] 4.4 Write reviewed glosses into each `entries[].translation` and recompute the root `meaning` in `generate-dict` format in `public/dictionaries/confusion-map.json`
-- [ ] 4.5 Verify glosses render (no `'a. ; a. ; n. '`), bad inflections gone; run `npm run build` + `npm test`; commit Batch 4
+- [x] 4.0 QA 前置：`qa/test-design-batch4.md` + Red 测试（B4-1/B4-2/B4-3 断言级 Red，已贴输出）
+- [x] 4.1 `scripts/sync-inflections.ts` POS 判定改精确匹配（`e.type === 'verb'/'noun'`）(#8)
+- [x] 4.2 外科式清理 + 重生成 `inflections.json`（动词形态非动词才删、复数形态非名词才删）；diff 核对：-340 全为 POS 坏形，真实名词复数（ways/homes/books）保留
+- [x] 4.3 26 词中文短译（LLM 草稿，用户已校对）(#5)
+- [x] 4.4 写入 `entries[].translation` 并按现有格式重算 `meaning`（`public/dictionaries/confusion-map.json`）
+- [x] 4.5 校对：全库 0 个全空译文、坏变形已清除；`npm test`（37/37）+ `npm run build` 通过; commit Batch 4
+- [ ] 4.6 （新发现，超出约定范围）7 词 do/have/latter/need/one/that/to 的 stored meaning 仍有悬空词性符——需同 26 词流程补短译，待用户决定
 
 ## 5. Final verification
 
