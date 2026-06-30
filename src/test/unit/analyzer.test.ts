@@ -49,3 +49,13 @@ describe('Analyzer Logic - Heteronym IPA Hiding', () => {
     expect(match?.explanation.ipa).toBeDefined()
   })
 })
+
+describe('Analyzer Logic - saved base word highlights inflections', () => {
+  it('S1: saving base word "victim" annotates the inflected "victims"', () => {
+    // dict keyed by surface form (as batchLookupWords would produce), entry word is the base.
+    const dict = { victims: { word: 'victim', meaning: '受害者', cefr: ['a2'] } } as any
+    // High user level so victim(a2) is NOT hard enough — only a saved-match can include it.
+    const results = analyzeText('the victims fled', 'CEFR_C1', new Set(['victim']), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'victims')).toBeDefined()
+  })
+})

@@ -13,6 +13,30 @@ export const getLemmaKeys = (word: string): string[] => {
   return lemma && lemma !== lower ? [lower, lemma] : [lower]
 }
 
+/**
+ * Ordered, de-duplicated lookup candidates for a surface word:
+ * surface form first, then the inflections.json lemma, then suffix-stripped
+ * bases (-ies/-es/-s/-ed/-ing). Surface-first ensures derived words that have
+ * their own entry (building/meeting) are used as-is rather than mis-resolved.
+ * Stub — real candidate generation implemented in the Green step.
+ */
+export const getLookupCandidates = (word: string): string[] => {
+  const lower = word.toLowerCase()
+  const out: string[] = [lower]
+  const push = (w: string) => { if (w && w.length >= 2 && !out.includes(w)) out.push(w) }
+
+  const lemma = (inflections as Record<string, string>)[lower]
+  if (lemma) push(lemma)
+
+  if (lower.endsWith('ies')) push(lower.slice(0, -3) + 'y') // cities -> city
+  if (lower.endsWith('es')) push(lower.slice(0, -2)) // boxes -> box
+  if (lower.endsWith('s')) push(lower.slice(0, -1)) // victims -> victim
+  if (lower.endsWith('ed')) { push(lower.slice(0, -2)); push(lower.slice(0, -1)) } // suffered -> suffer; used -> use
+  if (lower.endsWith('ing')) { push(lower.slice(0, -3)); push(lower.slice(0, -3) + 'e') } // making -> mak/make
+
+  return out
+}
+
 const DB_NAME = 'll_dictionary_db'
 const DB_VERSION = 3
 const STORES = {
@@ -80,18 +104,11 @@ const importDictionary = async (db: IDBPDatabase<DictionaryDB>, version: number)
 
 export const lookupWordInDB = async (word: string): Promise<WordExplanation | undefined> => {
   const db = await initDB()
-  const lower = word.toLowerCase()
-
-  // Try surface form, then the inflections.json lemma (so studies -> study hits).
-  for (const key of getLemmaKeys(word)) {
+  // Surface form first, then lemma / suffix-stripped bases (see getLookupCandidates).
+  for (const key of getLookupCandidates(word)) {
     const res = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
     if (res) return res
   }
-
-  // Simple morphological fallbacks for forms not in inflections.json.
-  if (lower.endsWith('s')) return db.get(STORES.WORDS, lower.slice(0, -1))
-  if (lower.endsWith('ed')) return db.get(STORES.WORDS, lower.slice(0, -2))
-  if (lower.endsWith('ing')) return db.get(STORES.WORDS, lower.slice(0, -3))
   return undefined
 }
 
@@ -101,9 +118,10 @@ export const batchLookupWords = async (words: string[]): Promise<Record<string, 
 
   await Promise.all(words.map(async (w) => {
     const lower = w.toLowerCase()
-    // Query surface form first, then the lemma; key the result by the surface
-    // form so the caller's dict[surface] fallback resolves the inflected token.
-    for (const key of getLemmaKeys(w)) {
+    // Surface form first (so building/meeting use their own entry), then lemma /
+    // suffix-stripped bases; key the result by the surface form so the caller's
+    // dict[surface] fallback resolves the inflected token.
+    for (const key of getLookupCandidates(w)) {
       const entry = (await db.get(STORES.USER, key)) || (await db.get(STORES.WORDS, key))
       if (entry) {
         results[lower] = entry

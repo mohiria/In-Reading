@@ -12,6 +12,7 @@ export const Popup = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'llm' | 'vocab'>('general')
   const [tabEnabled, setTabEnabled] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
+  const [vocabQuery, setVocabQuery] = useState('')
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -248,11 +249,29 @@ export const Popup = () => {
           查看全部 / 导出
         </button>
       </div>
-      {vocabulary.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
-      ) : (
+      {vocabulary.length > 0 && (
+        <input
+          type="text"
+          value={vocabQuery}
+          onChange={(e) => setVocabQuery(e.target.value)}
+          placeholder="搜索单词或释义…"
+          style={{ width: '100%', padding: '6px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd', marginBottom: '0.8rem', fontSize: '0.8rem' }}
+        />
+      )}
+      {(() => {
+        const q = vocabQuery.trim().toLowerCase()
+        const filtered = q
+          ? vocabulary.filter(v => v.word.toLowerCase().includes(q) || (v.meaning || '').toLowerCase().includes(q))
+          : vocabulary
+        if (vocabulary.length === 0) {
+          return <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
+        }
+        if (filtered.length === 0) {
+          return <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '1.5rem 0' }}>没有匹配的生词。</p>
+        }
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {vocabulary.map((item) => (
+          {filtered.map((item) => (
             <div key={item.word} style={{ 
               fontSize: '0.85rem', padding: '8px', backgroundColor: '#f9f9f9', 
               borderRadius: '4px', display: 'flex', justifyContent: 'space-between', border: '1px solid #eee'
@@ -267,7 +286,8 @@ export const Popup = () => {
             </div>
           ))}
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 

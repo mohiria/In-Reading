@@ -55,7 +55,10 @@ export const analyzeText = (
       ipa: explanation.hideIPA ? undefined : getPreferredIPA(explanation, pronunciation)
     }
 
-    const isSavedWord = vocabulary.has(baseWord) || vocabulary.has(lowerWord)
+    // Also match the resolved entry's base word, so saving a base (victim)
+    // highlights its inflected forms (victims).
+    const resolvedWord = (explanation.word || '').toLowerCase()
+    const isSavedWord = vocabulary.has(baseWord) || vocabulary.has(lowerWord) || (!!resolvedWord && vocabulary.has(resolvedWord))
     const isHardEnough = checkDifficulty(explanation, userLevel)
     
     if (isSavedWord || isHardEnough) {
