@@ -26,5 +26,5 @@
 ## 4. 验证与提交
 
 - [x] 4.1 全量 `npx vitest run` 60/60 + `npm run build` 通过；出 `qa/qa-report.md`
-- [ ] 4.2 手动（Brave 读 BBC 测试页，开 AI）：anti-migrant 单注解；重载扩展自动重导词库；Options 按钮即时刷新且生词本仍在；划词已回填进阶词即时出（待用户验证）
+- [x] 4.2 手动（Brave 读 BBC 测试页，开 AI）已验证：anti-migrant 单注解；重载扩展自动重导词库（appear→出现）；Options 按钮即时刷新且生词本仍在；划词已回填进阶词即时出、重复划词即时
 - [x] 4.3 提交（Conventional Commits，中文正文）
