@@ -1,7 +1,18 @@
 import { analyzeText } from '../../common/nlp/analyzer'
 import { ProficiencyLevel, WordExplanation } from '../../common/types'
 import { speak } from '../../common/utils/speech'
-import { extractCandidates } from './backfill'
+import { extractCandidates, selectUnknownHard } from './backfill'
+import { getLemmaKeys, getAiCache, putAiCache, AiCacheEntry } from '../../common/storage/indexed-db'
+import defaultConfusionMap from '../../../public/dictionaries/confusion-map.json'
+
+// Shape returned by the injected backfill fn / AI cache (subset of an LLM gloss).
+export interface BackfillGloss { meaning: string; ipa_us?: string; ipa_uk?: string }
+export type BackfillFn = (items: { word: string; sentence: string }[]) => Promise<Record<string, BackfillGloss>>
+
+const MAX_BACKFILL = 80 // hard cap on uncovered words backfilled per scan
+const BACKFILL_BATCH = 40 // words per LLM request (mirrors fetchBatchFromLLM)
+const BACKFILL_CONCURRENCY = 2 // simultaneous requests per scan
+const confusionMap = defaultConfusionMap as Record<string, any>
 
 /**
  * Constants & Configuration
@@ -121,24 +132,33 @@ const createOptimizedWalker = (root: HTMLElement | Document, extraReject?: (el: 
  * Main entry point for scanning and highlighting
  */
 export const scanAndHighlight = async (
-  root: HTMLElement | Document, 
-  level: ProficiencyLevel, 
+  root: HTMLElement | Document,
+  level: ProficiencyLevel,
   vocabulary: Set<string> = new Set(),
   userDict: Record<string, WordExplanation> = {},
   pronunciation: 'UK' | 'US' = 'US',
   dbLookup?: (words: string[]) => Promise<Record<string, WordExplanation>>,
   shouldClear: boolean = false,
-  showIPA: boolean = true
+  showIPA: boolean = true,
+  backfill?: BackfillFn
 ) => {
   if (shouldClear) clearHighlights(root)
 
-  // 1. Collect all candidates for batch lookup
+  // 1. Collect all candidates for batch lookup. Track which surface forms were
+  //    ever seen lowercase (proper-noun filter) and a sample sentence per word.
   const candidates: Set<string> = new Set()
+  const everLower: Set<string> = new Set()
+  const contextMap = new Map<string, string>()
   const candidateWalker = createOptimizedWalker(root)
-  
+
   while (candidateWalker.nextNode()) {
     const text = candidateWalker.currentNode.nodeValue || ''
-    for (const w of extractCandidates(text)) candidates.add(w.toLowerCase())
+    for (const tok of extractCandidates(text)) {
+      const lower = tok.toLowerCase()
+      candidates.add(lower)
+      if (/^[a-z]/.test(tok)) everLower.add(lower)
+      if (!contextMap.has(lower)) contextMap.set(lower, text.trim().slice(0, 200))
+    }
   }
 
   // 2. Batch fetch dictionary data
@@ -151,7 +171,27 @@ export const scanAndHighlight = async (
     }
   }
 
-  // 3. Identification and Reinforcement Logic
+  // 3. Phase 1 — local annotation (immediate, unchanged behavior)
+  annotateBlocks(root, level, vocabulary, combinedDict, pronunciation, showIPA)
+
+  // 4. Phase 2 — opt-in online backfill of locally-uncovered words. Skipped
+  //    entirely when no backfill fn is injected (AI off / offline) → local-only.
+  if (!backfill) return
+  await runBackfill(root, level, pronunciation, showIPA, combinedDict, candidates, everLower, contextMap, backfill)
+}
+
+/**
+ * Build blocks from the current DOM and annotate each text node. Used for both
+ * the Phase-1 local pass and the Phase-2 backfill pass (with a backfill-only dict).
+ */
+const annotateBlocks = (
+  root: HTMLElement | Document,
+  level: ProficiencyLevel,
+  vocabulary: Set<string>,
+  dict: Record<string, WordExplanation>,
+  pronunciation: 'UK' | 'US',
+  showIPA: boolean
+) => {
   const walker = createOptimizedWalker(root, (el) => el.classList.contains('ll-word-container'))
 
   const blockMap = new Map<Element, Text[]>()
@@ -159,8 +199,8 @@ export const scanAndHighlight = async (
 
   while (walker.nextNode()) {
     const node = walker.currentNode as Text
-    const block = node.parentElement?.closest('p, li') || 
-                  node.parentElement?.closest('div, section, article') || 
+    const block = node.parentElement?.closest('p, li') ||
+                  node.parentElement?.closest('div, section, article') ||
                   node.parentElement
     if (block) {
       if (!blockMap.has(block)) {
@@ -176,9 +216,70 @@ export const scanAndHighlight = async (
   blocks.forEach((block, blockIndex) => {
     const seenInBlock = new Set<string>()
     blockMap.get(block)?.forEach(node => {
-      processTextNode(node, level, vocabulary, combinedDict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock)
+      processTextNode(node, level, vocabulary, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock)
     })
   })
+}
+
+/**
+ * Phase 2 orchestration: pick locally-uncovered "hard" words, serve from the AI
+ * cache where possible, batch-fetch the rest, persist them, then re-annotate the
+ * DOM with a backfill-only dict so just those words gain annotations (fade-in).
+ * Any failure degrades silently to the Phase-1 result.
+ */
+const runBackfill = async (
+  root: HTMLElement | Document,
+  level: ProficiencyLevel,
+  pronunciation: 'UK' | 'US',
+  showIPA: boolean,
+  combinedDict: Record<string, WordExplanation>,
+  candidates: Set<string>,
+  everLower: Set<string>,
+  contextMap: Map<string, string>,
+  backfill: BackfillFn
+) => {
+  // Resolved locally if it is in the merged dict or the confusion map (incl. lemma).
+  const isResolved = (w: string) => !!combinedDict[w] || getLemmaKeys(w).some(k => !!confusionMap[k])
+  const unknownHard = selectUnknownHard(Array.from(candidates), { isResolved, everLower })
+  if (unknownHard.length === 0) return
+
+  const targets = unknownHard.slice(0, MAX_BACKFILL)
+  if (unknownHard.length > MAX_BACKFILL) {
+    console.log(`In Reading: backfill capped at ${MAX_BACKFILL}, dropped ${unknownHard.length - MAX_BACKFILL} word(s)`)
+  }
+
+  // Serve from cache first; only miss words hit the network.
+  const cached = await getAiCache(targets).catch(() => ({} as Record<string, AiCacheEntry>))
+  const misses = targets.filter(w => !cached[w])
+
+  const fetched: Record<string, BackfillGloss> = {}
+  if (misses.length > 0) {
+    const chunks: string[][] = []
+    for (let i = 0; i < misses.length; i += BACKFILL_BATCH) chunks.push(misses.slice(i, i + BACKFILL_BATCH))
+    const batchResults = await Promise.all(
+      chunks.slice(0, BACKFILL_CONCURRENCY).map(chunk =>
+        backfill(chunk.map(w => ({ word: w, sentence: contextMap.get(w) || w }))).catch(() => ({} as Record<string, BackfillGloss>))
+      )
+    )
+    for (const r of batchResults) Object.assign(fetched, r)
+    const toCache: AiCacheEntry[] = Object.entries(fetched).map(([word, g]) => ({
+      word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source: 'AI'
+    }))
+    if (toCache.length > 0) await putAiCache(toCache).catch(() => {})
+  }
+
+  // Merge cache hits + fresh fetches into a backfill-only dictionary.
+  const backfillDict: Record<string, WordExplanation> = {}
+  const addGloss = (word: string, g: BackfillGloss, source: string) => {
+    backfillDict[word] = { word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source } as WordExplanation
+  }
+  for (const [w, g] of Object.entries(cached)) addGloss(w, g, g.source || 'AI')
+  for (const [w, g] of Object.entries(fetched)) addGloss(w, g, 'AI')
+  if (Object.keys(backfillDict).length === 0) return
+
+  // Re-annotate: backfill-only dict + empty vocabulary so existing local/saved
+  // annotations are untouched and only the newly-resolved words get added.
+  annotateBlocks(root, level, new Set<string>(), backfillDict, pronunciation, showIPA)
 }
 
 /**

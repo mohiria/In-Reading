@@ -38,17 +38,27 @@ export const getLookupCandidates = (word: string): string[] => {
 }
 
 const DB_NAME = 'll_dictionary_db'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORES = {
   WORDS: 'words' as const,
   USER: 'user_words' as const,
-  META: 'meta' as const
+  META: 'meta' as const,
+  AI_CACHE: 'ai_cache' as const
+}
+
+export interface AiCacheEntry {
+  word: string
+  meaning: string
+  ipa_us?: string
+  ipa_uk?: string
+  source?: string
 }
 
 interface DictionaryDB extends DBSchema {
   [STORES.WORDS]: { key: string; value: WordExplanation }
   [STORES.USER]: { key: string; value: WordExplanation }
   [STORES.META]: { key: string; value: any }
+  [STORES.AI_CACHE]: { key: string; value: AiCacheEntry }
 }
 
 let dbPromise: Promise<IDBPDatabase<DictionaryDB>> | null = null
@@ -60,9 +70,32 @@ export const initDB = async () => {
       if (!db.objectStoreNames.contains(STORES.WORDS)) db.createObjectStore(STORES.WORDS, { keyPath: 'word' })
       if (!db.objectStoreNames.contains(STORES.USER)) db.createObjectStore(STORES.USER, { keyPath: 'word' })
       if (!db.objectStoreNames.contains(STORES.META)) db.createObjectStore(STORES.META)
+      if (!db.objectStoreNames.contains(STORES.AI_CACHE)) db.createObjectStore(STORES.AI_CACHE, { keyPath: 'word' })
     },
   })
   return dbPromise
+}
+
+/** Read cached AI-backfilled glosses, keyed by lowercased word. */
+export const getAiCache = async (words: string[]): Promise<Record<string, AiCacheEntry>> => {
+  const db = await initDB()
+  const results: Record<string, AiCacheEntry> = {}
+  await Promise.all(words.map(async (w) => {
+    const lower = w.toLowerCase()
+    const entry = await db.get(STORES.AI_CACHE, lower)
+    if (entry) results[lower] = entry
+  }))
+  return results
+}
+
+/** Persist AI-backfilled glosses (keyed by lowercased word). */
+export const putAiCache = async (entries: AiCacheEntry[]): Promise<void> => {
+  if (entries.length === 0) return
+  const db = await initDB()
+  const tx = db.transaction(STORES.AI_CACHE, 'readwrite')
+  const store = tx.objectStore(STORES.AI_CACHE)
+  await Promise.all(entries.map(e => store.put({ ...e, word: e.word.toLowerCase() })))
+  await tx.done
 }
 
 export const checkAndUpdateDictionary = async () => {

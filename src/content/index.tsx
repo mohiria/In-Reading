@@ -37,9 +37,18 @@ const runScan = async (forceClear = false) => {
     const vocabSet = new Set(vocabList.map(v => v.word.toLowerCase()))
     const vocabMap = Object.fromEntries(vocabList.map(v => [v.word.toLowerCase(), v]))
 
+    // Opt-in online backfill: only when AI is configured and the device is online.
+    const shouldBackfill = settings.engine === 'llm' && !!settings.llm?.apiKey && navigator.onLine
+    const backfillFn = shouldBackfill
+      ? async (items: { word: string; sentence: string }[]) => {
+          const res = await chrome.runtime.sendMessage({ type: 'BACKFILL_WORDS', items, settings }).catch(() => null)
+          return res && res.success && res.data ? res.data : {}
+        }
+      : undefined
+
     await scanAndHighlight(
-      document.body, settings.proficiency, vocabSet, vocabMap, 
-      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA
+      document.body, settings.proficiency, vocabSet, vocabMap,
+      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn
     )
   } finally {
     isScanning = false

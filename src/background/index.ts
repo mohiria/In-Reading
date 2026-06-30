@@ -1,4 +1,4 @@
-import { fetchFromLLM } from './llm'
+import { fetchFromLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
 import { UserSettings } from '../common/types'
 import { getSettings } from '../common/storage/settings'
 import * as TranslationService from './services/translation'
@@ -81,6 +81,25 @@ async function handleTranslationRequest(text: string, contextSentence: string, s
 }
 
 /**
+ * Inline AI backfill: explain a batch of locally-uncovered words in one request.
+ * Returns an empty map on any failure (offline, bad key, parse error) so the
+ * content script degrades silently to local-only annotation.
+ */
+async function handleBackfillRequest(
+  items: BatchItem[],
+  settings?: UserSettings
+): Promise<Record<string, BatchGloss>> {
+  if (!settings || settings.engine !== 'llm' || !settings.llm.apiKey) return {}
+  if (!Array.isArray(items) || items.length === 0) return {}
+  try {
+    return await fetchBatchFromLLM(items, settings)
+  } catch (e) {
+    console.error('Backfill request failed', e)
+    return {}
+  }
+}
+
+/**
  * Event Listeners
  */
 chrome.commands.onCommand.addListener(async (command) => {
@@ -107,6 +126,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleTranslationRequest(request.text, request.context, request.settings)
         .then(data => sendResponse({ success: true, data }))
         .catch(err => sendResponse({ success: false, error: err.message }))
+      return true
+    case 'BACKFILL_WORDS':
+      handleBackfillRequest(request.items, request.settings)
+        .then(data => sendResponse({ success: true, data }))
+        .catch(() => sendResponse({ success: true, data: {} }))
       return true
   }
   return true
