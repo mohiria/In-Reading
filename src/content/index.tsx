@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { scanAndHighlight, clearHighlights, unhighlightWord } from './engine/scanner'
+import { scanAndHighlight, clearHighlights, unhighlightWord, annotateWord } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
 import { getKnownWords } from '../common/storage/knownWords'
@@ -154,17 +154,15 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     
     // Surgical update: only handle words that were added or removed
     if (newVocab.length > oldVocab.length) {
-      // Added words
+      // Added words — annotate ONLY the new word(s). A full non-clearing rescan
+      // would re-annotate other difficult words' gap-skipped occurrences with a
+      // fresh spacing state, densifying them into adjacent blocks (breaks the gap).
       const added = newVocab.filter(nv => !oldVocab.some(ov => ov.word === nv.word))
-      for (const item of added) {
-        const [settings] = await Promise.all([getSettings()])
-        const vocabSet = new Set(newVocab.map(v => v.word.toLowerCase()))
-        const vocabMap = Object.fromEntries(newVocab.map(v => [v.word.toLowerCase(), v]))
-        // Scan specifically for the new word
-        await scanAndHighlight(
-          document.body, settings.proficiency, vocabSet, vocabMap, 
-          settings.pronunciation, batchLookupWords, false, settings.showIPA
-        )
+      if (added.length > 0) {
+        const settings = await getSettings()
+        for (const item of added) {
+          annotateWord(document.body, item.word, item, settings.proficiency, settings.pronunciation, settings.showIPA)
+        }
       }
     } else if (newVocab.length < oldVocab.length) {
       // Removed words

@@ -1,6 +1,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { scanAndHighlight } from '../../content/engine/scanner'
+import { scanAndHighlight, annotateWord } from '../../content/engine/scanner'
 
 describe('Scanner Integration - MS Learn Simulation', () => {
   beforeEach(() => {
@@ -62,5 +62,45 @@ describe('Scanner Integration - MS Learn Simulation', () => {
     const translation = container?.querySelector('.ll-translation')?.textContent || ''
     expect(translation).toContain('出现')
     expect(translation).not.toContain('食欲')
+  })
+
+  it('P3: annotateWord adds only the target word and never densifies other spaced words', () => {
+    document.body.innerHTML = `<main role="main"><article>
+      <p id="p1">extension apple alpha</p>
+      <p id="p2">extension apple beta</p>
+      <p id="p3">extension apple gamma</p>
+      <p id="p4">extension apple delta</p>
+      <p id="p5">extension apple omega</p>
+    </article></main>`
+
+    // 1. Initial scan annotates the difficult word "extension" with gap spacing.
+    const dict = { extension: { word: 'extension', meaning: '扩展', cefr: ['a1'] } } as any
+    // scanAndHighlight is async but local-only here (no dbLookup) → resolves synchronously enough;
+    // await to be safe.
+    return scanAndHighlight(document.body, 'CEFR_A1', new Set(), dict).then(() => {
+      const hasExt = (id: string) => !!document.getElementById(id)?.querySelector('.ll-word-container[data-word="extension"]')
+      const hasApple = (id: string) => !!document.getElementById(id)?.querySelector('.ll-word-container[data-word="apple"]')
+
+      // extension is spaced: p1,p3,p5 shown; p2,p4 skipped
+      const extBefore = document.querySelectorAll('.ll-word-container[data-word="extension"]').length
+      expect(extBefore).toBe(3)
+      expect(hasExt('p2')).toBe(false)
+      expect(hasExt('p4')).toBe(false)
+
+      // 2. Save "apple" → targeted annotation.
+      annotateWord(document.body, 'apple', { word: 'apple', meaning: '苹果' } as any, 'CEFR_A1')
+
+      // apple is annotated, itself spaced (p1,p3,p5)
+      expect(hasApple('p1')).toBe(true)
+      expect(hasApple('p3')).toBe(true)
+      expect(hasApple('p5')).toBe(true)
+      expect(hasApple('p2')).toBe(false)
+      expect(hasApple('p4')).toBe(false)
+
+      // extension is UNTOUCHED — no collateral densification into the gap blocks.
+      expect(document.querySelectorAll('.ll-word-container[data-word="extension"]').length).toBe(3)
+      expect(hasExt('p2')).toBe(false)
+      expect(hasExt('p4')).toBe(false)
+    })
   })
 })

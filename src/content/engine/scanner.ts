@@ -184,17 +184,10 @@ export const scanAndHighlight = async (
  * Build blocks from the current DOM and annotate each text node. Used for both
  * the Phase-1 local pass and the Phase-2 backfill pass (with a backfill-only dict).
  */
-const annotateBlocks = (
-  root: HTMLElement | Document,
-  level: ProficiencyLevel,
-  vocabulary: Set<string>,
-  dict: Record<string, WordExplanation>,
-  pronunciation: 'UK' | 'US',
-  showIPA: boolean,
-  knownWords: Set<string> = new Set()
-) => {
+// Groups the annotatable text nodes under `root` by their nearest block element,
+// skipping subtrees inside existing `.ll-word-container` annotations.
+const buildBlocks = (root: HTMLElement | Document): { blocks: Element[]; blockMap: Map<Element, Text[]> } => {
   const walker = createOptimizedWalker(root, (el) => el.classList.contains('ll-word-container'))
-
   const blockMap = new Map<Element, Text[]>()
   const blocks: Element[] = []
 
@@ -211,7 +204,19 @@ const annotateBlocks = (
       blockMap.get(block)?.push(node)
     }
   }
+  return { blocks, blockMap }
+}
 
+const annotateBlocks = (
+  root: HTMLElement | Document,
+  level: ProficiencyLevel,
+  vocabulary: Set<string>,
+  dict: Record<string, WordExplanation>,
+  pronunciation: 'UK' | 'US',
+  showIPA: boolean,
+  knownWords: Set<string> = new Set()
+) => {
+  const { blocks, blockMap } = buildBlocks(root)
   const wordStateMap = new Map<string, WordState>()
 
   blocks.forEach((block, blockIndex) => {
@@ -299,12 +304,13 @@ const processTextNode = (
   stateMap: Map<string, WordState>,
   blockIndex: number,
   seenInBlock: Set<string>,
-  knownWords: Set<string> = new Set()
+  knownWords: Set<string> = new Set(),
+  confusionMap?: Record<string, any>
 ) => {
   const text = node.nodeValue
   if (!text?.trim()) return
 
-  const matches = analyzeText(text, level, vocabulary, dict, pronunciation, undefined, knownWords)
+  const matches = analyzeText(text, level, vocabulary, dict, pronunciation, confusionMap, knownWords)
   if (matches.length === 0) return
 
   const fragment = document.createDocumentFragment()
@@ -476,6 +482,44 @@ export const clearHighlights = (root: HTMLElement | Document = document) => {
     }
   })
   parents.forEach(p => p.normalize())
+}
+
+/**
+ * Targeted annotation of a single (newly-saved) word without disturbing other
+ * words' spacing. A one-word dict + empty confusion map means ONLY this word can
+ * match (no collateral re-annotation of other difficult/confusion-map words), and
+ * blocks already showing the word seed the gap so an already-annotated word is
+ * never densified. Used by the vocabulary-add surgical update instead of a full
+ * non-clearing rescan (which would re-annotate gap-skipped occurrences).
+ */
+export const annotateWord = (
+  root: HTMLElement | Document,
+  word: string,
+  exp: WordExplanation,
+  level: ProficiencyLevel,
+  pronunciation: 'UK' | 'US' = 'US',
+  showIPA: boolean = true
+) => {
+  const lower = word.toLowerCase()
+  const dict: Record<string, WordExplanation> = { [lower]: exp }
+  const vocab = new Set([lower])
+  const { blocks, blockMap } = buildBlocks(root)
+  const wordStateMap = new Map<string, WordState>()
+
+  blocks.forEach((block, blockIndex) => {
+    // A block already showing this word seeds the gap and gets no new annotation,
+    // so an already-annotated (difficult) word that gets saved is not densified.
+    const alreadyHere = Array.from(block.querySelectorAll('.ll-word-container'))
+      .some(c => c.getAttribute('data-word') === lower)
+    if (alreadyHere) {
+      wordStateMap.set(lower, { totalDisplayed: 0, lastBlockIndex: blockIndex })
+      return
+    }
+    const seenInBlock = new Set<string>()
+    blockMap.get(block)?.forEach(node =>
+      processTextNode(node, level, vocab, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock, new Set(), {})
+    )
+  })
 }
 
 /**
