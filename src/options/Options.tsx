@@ -1,24 +1,72 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { ProficiencyLevel, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
 import { useKnownWords } from '../common/hooks/useKnownWords'
 import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
-import { toCSV, downloadCSV } from '../common/utils/export'
+import { toCSV, downloadCSV, parseVocabCSV, toKnownCSV, parseKnownCSV } from '../common/utils/export'
 import { formatIPA } from '../common/utils/format'
 import { forceReimportDictionary } from '../common/storage/indexed-db'
-import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download, RotateCcw } from 'lucide-react'
+import { Cpu, Settings, Globe, Check, BookOpen, Trash2, Download, Upload, RotateCcw } from 'lucide-react'
 
 export const Options = () => {
   const { settings, updateSettings, loading } = useSettings()
-  const { vocabulary, removeWord } = useVocabulary()
-  const { knownWords, removeKnown } = useKnownWords()
+  const { vocabulary, addWord, removeWord } = useVocabulary()
+  const { knownWords, addKnown, removeKnown } = useKnownWords()
   const [savedStatus, setSavedStatus] = useState(false)
   const [vocabQuery, setVocabQuery] = useState('')
   const [knownQuery, setKnownQuery] = useState('')
   const [resetting, setResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState('')
+  const [vocabMsg, setVocabMsg] = useState('')
+  const [knownMsg, setKnownMsg] = useState('')
+  const vocabFileRef = useRef<HTMLInputElement>(null)
+  const knownFileRef = useRef<HTMLInputElement>(null)
+
+  const handleVocabImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-importing the same file
+    if (!file) return
+    try {
+      const rows = parseVocabCSV(await file.text())
+      const existing = new Set(vocabulary.map(v => v.word.toLowerCase()))
+      let added = 0
+      for (const w of rows) {
+        if (existing.has(w.word.toLowerCase())) continue
+        await addWord(w)
+        existing.add(w.word.toLowerCase())
+        added++
+      }
+      setVocabMsg(`已导入 ${added} 个（跳过重复 ${rows.length - added}）`)
+    } catch {
+      setVocabMsg('导入失败，请检查文件格式。')
+    } finally {
+      setTimeout(() => setVocabMsg(''), 5000)
+    }
+  }
+
+  const handleKnownImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const words = parseKnownCSV(await file.text())
+      const existing = new Set(knownWords.map(w => w.toLowerCase()))
+      let added = 0
+      for (const w of words) {
+        if (existing.has(w)) continue
+        await addKnown(w)
+        existing.add(w)
+        added++
+      }
+      setKnownMsg(`已导入 ${added} 个（跳过重复 ${words.length - added}）`)
+    } catch {
+      setKnownMsg('导入失败，请检查文件格式。')
+    } finally {
+      setTimeout(() => setKnownMsg(''), 5000)
+    }
+  }
 
   const handleResetDictCache = async () => {
     setResetting(true)
@@ -174,21 +222,34 @@ export const Options = () => {
         </section>
 
         <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '8px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BookOpen size={20} /> 生词本 ({vocabulary.length})
             </h2>
-            <button
-              onClick={() => vocabulary.length && downloadCSV(`in-reading-vocab-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(vocabulary))}
-              disabled={vocabulary.length === 0}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
-                border: '1px solid #ddd', background: vocabulary.length ? 'white' : '#f0f0f0',
-                color: vocabulary.length ? '#333' : '#aaa', cursor: vocabulary.length ? 'pointer' : 'not-allowed', fontSize: '0.85rem'
-              }}
-            >
-              <Download size={14} /> 导出 CSV (Anki/Excel)
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {vocabMsg && <span style={{ fontSize: '0.8rem', color: '#319795' }}>{vocabMsg}</span>}
+              <input ref={vocabFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleVocabImport} />
+              <button
+                onClick={() => vocabFileRef.current?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+                  border: '1px solid #ddd', background: 'white', color: '#333', cursor: 'pointer', fontSize: '0.85rem'
+                }}
+              >
+                <Upload size={14} /> 导入 CSV
+              </button>
+              <button
+                onClick={() => vocabulary.length && downloadCSV(`in-reading-vocab-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(vocabulary))}
+                disabled={vocabulary.length === 0}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+                  border: '1px solid #ddd', background: vocabulary.length ? 'white' : '#f0f0f0',
+                  color: vocabulary.length ? '#333' : '#aaa', cursor: vocabulary.length ? 'pointer' : 'not-allowed', fontSize: '0.85rem'
+                }}
+              >
+                <Download size={14} /> 导出 CSV
+              </button>
+            </div>
           </div>
 
           <input
@@ -233,11 +294,37 @@ export const Options = () => {
         </section>
 
         <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
-          <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Check size={20} /> 已掌握 ({knownWords.length})
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '8px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Check size={20} /> 已掌握 ({knownWords.length})
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {knownMsg && <span style={{ fontSize: '0.8rem', color: '#319795' }}>{knownMsg}</span>}
+              <input ref={knownFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleKnownImport} />
+              <button
+                onClick={() => knownFileRef.current?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+                  border: '1px solid #ddd', background: 'white', color: '#333', cursor: 'pointer', fontSize: '0.85rem'
+                }}
+              >
+                <Upload size={14} /> 导入 CSV
+              </button>
+              <button
+                onClick={() => knownWords.length && downloadCSV(`in-reading-known-${new Date().toISOString().slice(0, 10)}.csv`, toKnownCSV(knownWords))}
+                disabled={knownWords.length === 0}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px',
+                  border: '1px solid #ddd', background: knownWords.length ? 'white' : '#f0f0f0',
+                  color: knownWords.length ? '#333' : '#aaa', cursor: knownWords.length ? 'pointer' : 'not-allowed', fontSize: '0.85rem'
+                }}
+              >
+                <Download size={14} /> 导出 CSV
+              </button>
+            </div>
+          </div>
           <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: '#666' }}>
-            标记为已掌握的词不再被注解（仍可划词主动查询）。在阅读时划词点「标记已掌握」加入。
+            标记为已掌握的词不再被注解（仍可划词主动查询）。在阅读时划词点「已掌握」加入。
           </p>
 
           <input
