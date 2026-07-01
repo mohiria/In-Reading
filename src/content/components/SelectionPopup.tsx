@@ -24,7 +24,15 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const checkState = () => {
-      chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (res) => setTabEnabled(!!res?.enabled))
+      // The 2s interval outlives the extension context after a reload; a chrome.*
+      // call from the dead context throws "Extension context invalidated."
+      if (!chrome.runtime?.id) return
+      try {
+        chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (res) => {
+          if (chrome.runtime.lastError) return
+          setTabEnabled(!!res?.enabled)
+        })
+      } catch { /* context invalidated */ }
     }
     checkState()
 
@@ -77,10 +85,13 @@ export const SelectionPopup = () => {
 
       setSelection({ text, rect, explanation: null, isSaved: false })
       setLoading(true)
-      
-      chrome.runtime.sendMessage({ 
-        type: 'TRANSLATE_WORD', text, context: text, settings 
+
+      if (!chrome.runtime?.id) { setLoading(false); return }
+      try {
+      chrome.runtime.sendMessage({
+        type: 'TRANSLATE_WORD', text, context: text, settings
       }, (res) => {
+        if (chrome.runtime.lastError) { setLoading(false); return }
         setLoading(false)
         if (res?.success) {
           setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
@@ -96,6 +107,7 @@ export const SelectionPopup = () => {
           }
         }
       })
+      } catch { setLoading(false) /* context invalidated */ }
     }
 
     const onMouseUp = (e: MouseEvent) => {

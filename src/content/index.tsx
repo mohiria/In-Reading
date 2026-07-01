@@ -26,7 +26,16 @@ root.render(<><Overlay /><SelectionPopup /></>)
 let tabEnabled = false
 let isScanning = false
 
+// True only while this content script's extension context is still valid. After the
+// extension reloads/updates, chrome.* calls from the OLD context throw
+// "Extension context invalidated." — guard the page-persistent hooks (MutationObserver,
+// history hooks, timers) so they no-op instead of throwing uncaught.
+const extensionAlive = (): boolean => {
+  try { return !!chrome.runtime?.id } catch { return false }
+}
+
 const runScan = async (forceClear = false) => {
+  if (!extensionAlive()) return
   if (isScanning || !tabEnabled) {
     if (!tabEnabled) clearHighlights()
     return
@@ -77,6 +86,8 @@ const setupObserver = () => {
     if (timeout) clearTimeout(timeout)
     // Reduced debounce time from 1000ms to 500ms for better responsiveness
     timeout = setTimeout(() => {
+      // Old context after an extension reload: stop observing instead of throwing.
+      if (!extensionAlive()) { observer.disconnect(); return }
       if (tabEnabled) runScan(false)
     }, 500)
   })

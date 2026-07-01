@@ -9,6 +9,7 @@ import { SelectionPopup } from '../../../content/components/SelectionPopup'
 // Mock global chrome
 const chromeMock = {
   runtime: {
+    id: 'test-extension-id', // present → extension context is "alive" (context-invalidation guard)
     sendMessage: vi.fn(),
     onMessage: { addListener: vi.fn(), removeListener: vi.fn() }
   },
