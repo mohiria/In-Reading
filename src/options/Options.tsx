@@ -3,7 +3,7 @@ import { ProficiencyLevel, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
 import { useKnownWords } from '../common/hooks/useKnownWords'
-import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
+import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
 import { toCSV, downloadCSV, parseVocabCSV, toKnownCSV, parseKnownCSV } from '../common/utils/export'
 import { formatIPA } from '../common/utils/format'
@@ -95,6 +95,17 @@ export const Options = () => {
 
   if (loading || !settings) return <div style={{ padding: '2rem' }}>Loading settings...</div>
 
+  // LLM field required-state (visual only — settings auto-save, nothing is blocked).
+  const isCustom = settings.llm.provider === 'custom'
+  const modelMissing = !(settings.llm.model || '').trim()
+  const keyMissing = !(settings.llm.apiKey || '').trim()
+  const baseUrlMissing = isCustom && !(settings.llm.baseUrl || '').trim()
+  const req = <span style={{ color: '#ff4d4f' }}>*</span>
+  const errBorder = '1px solid #ff4d4f'
+  const okBorder = '1px solid #ddd'
+  // Inline required hint — sits right after the * on the label line (no layout shift).
+  const inlineReq = <span style={{ color: '#ff4d4f', fontSize: '0.8rem', fontWeight: 'normal', marginLeft: '6px' }}>· 此项为必填</span>
+
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem', color: '#333', fontFamily: 'sans-serif' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -164,13 +175,14 @@ export const Options = () => {
                 value={settings.llm.provider} 
                 onChange={(e) => {
                   const p = e.target.value as LLMProvider
-                  handleLLMUpdate({ provider: p, model: p !== 'custom' ? LLM_MODELS[p as keyof typeof LLM_MODELS][0] : '' })
+                  // Pre-fill the provider's default model (custom has none → empty).
+                  handleLLMUpdate({ provider: p, model: p === 'custom' ? '' : LLM_DEFAULT_MODELS[p] })
                 }}
                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
               >
-                <option value="gemini">Google Gemini</option>
+                <option value="gemini">Google (Gemini)</option>
                 <option value="openai">OpenAI (GPT)</option>
-                <option value="claude">Anthropic Claude</option>
+                <option value="claude">Anthropic (Claude)</option>
                 <option value="deepseek">Deepseek</option>
                 <option value="moonshot">月之暗面 (Kimi)</option>
                 <option value="zhipu">智谱 AI (GLM)</option>
@@ -180,43 +192,35 @@ export const Options = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Model</label>
-              {settings.llm.provider === 'custom' ? (
-                <input 
-                  type="text" value={settings.llm.model || ''} 
-                  onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-                  placeholder="e.g. gpt-4-turbo"
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd' }}
-                />
-              ) : (
-                <select 
-                  value={settings.llm.model} 
-                  onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                >
-                  {(LLM_MODELS[settings.llm.provider as keyof typeof LLM_MODELS] || []).map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              )}
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Model {req}{modelMissing && inlineReq}</label>
+              <input
+                type="text" value={settings.llm.model || ''}
+                onChange={(e) => handleLLMUpdate({ model: e.target.value })}
+                placeholder={LLM_DEFAULT_MODELS[settings.llm.provider]}
+                style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: modelMissing ? errBorder : okBorder }}
+              />
             </div>
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>API Key</label>
-            <input 
-              type="password" value={settings.llm.apiKey} 
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>API Key {req}{keyMissing && inlineReq}</label>
+            <input
+              type="password" value={settings.llm.apiKey}
               onChange={(e) => handleLLMUpdate({ apiKey: e.target.value })}
               placeholder="sk-..."
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd' }}
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: keyMissing ? errBorder : okBorder }}
             />
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Base URL (Optional)</label>
-            <input 
-              type="text" value={settings.llm.baseUrl || ''} 
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+              Base URL {isCustom ? <>{req}{baseUrlMissing && inlineReq}</> : <span style={{ color: '#999', fontWeight: 'normal' }}>（选填）</span>}
+            </label>
+            <input
+              type="text" value={settings.llm.baseUrl || ''}
               onChange={(e) => handleLLMUpdate({ baseUrl: e.target.value })}
               placeholder={LLM_DEFAULT_URLS[settings.llm.provider]}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd' }}
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: baseUrlMissing ? errBorder : okBorder }}
             />
           </div>
         </section>

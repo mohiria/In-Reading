@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { ProficiencyLevel, SavedWord, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
-import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
+import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { Trash2, Settings, BookOpen, Cpu, Globe, Keyboard } from 'lucide-react'
 import { formatIPA } from '../common/utils/format'
 
@@ -156,7 +156,6 @@ export const Popup = () => {
   const LLMTab = () => {
     const provider = settings.llm.provider
     const isCustom = provider === 'custom'
-    const models = !isCustom ? LLM_MODELS[provider as keyof typeof LLM_MODELS] : []
 
     const inputStyle: React.CSSProperties = {
       width: '100%',
@@ -166,6 +165,15 @@ export const Popup = () => {
       boxSizing: 'border-box'
     }
 
+    // Required-state (visual only — settings auto-save, nothing is blocked).
+    const modelMissing = !(settings.llm.model || '').trim()
+    const keyMissing = !(settings.llm.apiKey || '').trim()
+    const baseUrlMissing = isCustom && !(settings.llm.baseUrl || '').trim()
+    const errStyle = (missing: boolean): React.CSSProperties =>
+      missing ? { ...inputStyle, border: '1px solid #ff4d4f' } : inputStyle
+    const req = <span style={{ color: 'red' }}>*</span>
+    const inlineReq = <span style={{ color: '#ff4d4f', fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '5px' }}>· 此项为必填</span>
+
     return (
       <div style={{ animation: 'fadeIn 0.2s' }}>
         <div style={{ marginBottom: '0.8rem' }}>
@@ -174,16 +182,14 @@ export const Popup = () => {
             value={provider} 
             onChange={(e) => {
               const p = e.target.value as LLMProvider
-              handleLLMUpdate({ 
-                provider: p, 
-                model: p !== 'custom' ? LLM_MODELS[p as keyof typeof LLM_MODELS][0] : '' 
-              })
+              // Pre-fill the provider's default model (custom has none → empty).
+              handleLLMUpdate({ provider: p, model: p === 'custom' ? '' : LLM_DEFAULT_MODELS[p] })
             }}
             style={inputStyle}
           >
-            <option value="gemini">Google Gemini</option>
+            <option value="gemini">Google (Gemini)</option>
             <option value="openai">OpenAI (GPT)</option>
-            <option value="claude">Anthropic Claude</option>
+            <option value="claude">Anthropic (Claude)</option>
             <option value="deepseek">Deepseek</option>
             <option value="moonshot">月之暗面 (Kimi)</option>
             <option value="zhipu">智谱 AI (GLM)</option>
@@ -193,45 +199,37 @@ export const Popup = () => {
         </div>
 
         <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Model</label>
-          {isCustom ? (
-            <input 
-              type="text"
-              value={settings.llm.model || ''} 
-              onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-              placeholder="e.g. gpt-4-turbo"
-              style={inputStyle}
-            />
-          ) : (
-            <select 
-              value={settings.llm.model} 
-              onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-              style={inputStyle}
-            >
-              {models.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          )}
-        </div>
-
-        <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>API Key <span style={{color:'red'}}>*</span></label>
-          <input 
-            type="password"
-            value={settings.llm.apiKey} 
-            onChange={(e) => handleLLMUpdate({ apiKey: e.target.value })}
-            placeholder="sk-..."
-            style={inputStyle}
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Model {req}{modelMissing && inlineReq}</label>
+          <input
+            type="text"
+            value={settings.llm.model || ''}
+            onChange={(e) => handleLLMUpdate({ model: e.target.value })}
+            placeholder={LLM_DEFAULT_MODELS[provider]}
+            style={errStyle(modelMissing)}
           />
         </div>
 
         <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Base URL (Optional)</label>
-          <input 
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>API Key {req}{keyMissing && inlineReq}</label>
+          <input
+            type="password"
+            value={settings.llm.apiKey}
+            onChange={(e) => handleLLMUpdate({ apiKey: e.target.value })}
+            placeholder="sk-..."
+            style={errStyle(keyMissing)}
+          />
+        </div>
+
+        <div style={{ marginBottom: '0.8rem' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+            Base URL {isCustom ? <>{req}{baseUrlMissing && inlineReq}</> : <span style={{ color: '#999' }}>（选填）</span>}
+          </label>
+          <input
             type="text"
-            value={settings.llm.baseUrl || ''} 
+            value={settings.llm.baseUrl || ''}
             onChange={(e) => handleLLMUpdate({ baseUrl: e.target.value })}
             placeholder={LLM_DEFAULT_URLS[provider]}
-            style={inputStyle}
+            style={errStyle(baseUrlMissing)}
           />
         </div>
       </div>
