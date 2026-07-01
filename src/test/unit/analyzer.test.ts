@@ -102,3 +102,21 @@ describe('Analyzer Logic - hyphenated compound as a single unit', () => {
     expect(results.find(r => r.word.toLowerCase() === 'migrant')).toBeDefined()
   })
 })
+
+describe('Analyzer Logic - Accented (Latin) words', () => {
+  it('AC1: an accented word is one token — its ASCII fragment is not matched', () => {
+    // Bug: "Stéphane" split on é → only "phane" was matched/highlighted.
+    const dict = { phane: { word: 'phane', meaning: 'x', cefr: ['c1'] } } as any
+    const results = analyzeText('Stéphane', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(0)
+  })
+
+  it('AC2: an accented word is tokenized and located as a whole', () => {
+    const dict = { 'café': { word: 'café', meaning: '咖啡馆', cefr: ['c1'] } } as any
+    const results = analyzeText('a café here', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('café')
+    expect(results[0].index).toBe(2)
+    expect(results[0].length).toBe(4)
+  })
+})

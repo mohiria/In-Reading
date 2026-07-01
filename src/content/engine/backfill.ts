@@ -1,9 +1,9 @@
 // Inline AI backfill helpers (pure logic; orchestration lives in scanner.ts).
 
-// Candidate tokenizer: hyphenated alphabetic compounds (life-threatening) OR
-// plain 3+ letter words. Compound alternative is listed first so it is matched
-// as a single token rather than split.
-const CANDIDATE_RE = /[A-Za-z]+(?:-[A-Za-z]+)+|[A-Za-z]{3,}/g
+// Candidate tokenizer: hyphenated Latin compounds (life-threatening) OR plain 3+
+// letter words. Latin-letter aware (incl. accents) so "Stéphane"/"café" stay whole.
+// Compound alternative is listed first so it is matched as a single token, not split.
+const CANDIDATE_RE = /\p{Script=Latin}+(?:-\p{Script=Latin}+)+|\p{Script=Latin}{3,}/gu
 
 // Returns candidate tokens: hyphenated compounds as a whole AND their 3+ letter
 // parts (so AI-off local annotation of the parts is preserved), plus plain words.

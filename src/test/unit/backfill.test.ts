@@ -13,6 +13,12 @@ describe('extractCandidates', () => {
     expect(c).not.toContain('a')
     expect(c).not.toContain('an')
   })
+
+  it('B6: keeps an accented word whole (does not split on the accent)', () => {
+    const c = extractCandidates('Meet Stéphane today')
+    expect(c).toContain('Stéphane')
+    expect(c).not.toContain('phane')
+  })
 })
 
 describe('selectUnknownHard', () => {
