@@ -126,7 +126,7 @@ describe('SelectionPopup Standardization', () => {
     await act(async () => {
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
     })
-    const btn = await screen.findByText(/标记已掌握/)
+    const btn = await screen.findByText(/已掌握/)
     await act(async () => { btn.click() })
     expect(mockAddKnown).toHaveBeenCalledWith('tear')
   })

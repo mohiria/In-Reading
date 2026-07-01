@@ -4,7 +4,7 @@ import { useVocabulary } from '../../common/hooks/useVocabulary'
 import { useKnownWords } from '../../common/hooks/useKnownWords'
 import { lookupWordInDB, getAiCache, putAiCache } from '../../common/storage/indexed-db'
 import { WordExplanation } from '../../common/types'
-import { BookOpen, Plus, Trash2, Check } from 'lucide-react'
+import { BookOpen, Plus, Minus, Check, X } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
@@ -157,6 +157,7 @@ export const SelectionPopup = () => {
 
   const currentPron = settings?.pronunciation || 'US'
   const exp = selection.explanation
+  const isKnown = knownWords.includes(selection.text.toLowerCase())
 
   let showSingleHeaderIPA = false
   let headerIPA = ''
@@ -253,35 +254,37 @@ export const SelectionPopup = () => {
             )}
           </div>
           
-          <button 
-            onClick={onToggleVocab} 
-            style={{ 
-              width: '100%', padding: '8px', 
-              backgroundColor: selection.isSaved ? '#fff1f0' : '#4b8bf5', 
-              color: selection.isSaved ? '#ff4d4f' : 'white', 
-              border: selection.isSaved ? '1px solid #ffccc7' : 'none', 
-              borderRadius: '6px', cursor: 'pointer', marginTop: '12px', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              gap: '6px', fontWeight: '500', fontSize: '13px'
-            }}
-          >
-            {selection.isSaved ? <><Trash2 size={14} /> Remove</> : <><Plus size={14} /> Add to Vocabulary</>}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <button
+              onClick={onToggleVocab}
+              style={{
+                flex: 1, padding: '8px',
+                backgroundColor: selection.isSaved ? '#4b8bf5' : 'transparent',
+                color: selection.isSaved ? 'white' : '#4b8bf5',
+                border: '1px solid #4b8bf5',
+                borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '6px', fontWeight: '500', fontSize: '13px'
+              }}
+            >
+              {selection.isSaved ? <><Minus size={14} /> 移出生词本</> : <><Plus size={14} /> 生词本</>}
+            </button>
 
-          <button
-            onClick={onToggleKnown}
-            style={{
-              width: '100%', padding: '8px',
-              backgroundColor: 'transparent',
-              color: knownWords.includes(selection.text.toLowerCase()) ? '#319795' : '#888',
-              border: '1px solid #ddd',
-              borderRadius: '6px', cursor: 'pointer', marginTop: '8px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '6px', fontWeight: '500', fontSize: '13px'
-            }}
-          >
-            <Check size={14} /> {knownWords.includes(selection.text.toLowerCase()) ? '取消已掌握' : '标记已掌握'}
-          </button>
+            <button
+              onClick={onToggleKnown}
+              style={{
+                flex: 1, padding: '8px',
+                backgroundColor: isKnown ? '#319795' : 'transparent',
+                color: isKnown ? 'white' : '#888',
+                border: isKnown ? '1px solid #319795' : '1px solid #ddd',
+                borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '6px', fontWeight: '500', fontSize: '13px'
+              }}
+            >
+              {isKnown ? <><X size={14} /> 取消已掌握</> : <><Check size={14} /> 已掌握</>}
+            </button>
+          </div>
         </div>
       )}
     </div>
