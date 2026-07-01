@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { scanAndHighlight, clearHighlights, unhighlightWord, annotateWord } from './engine/scanner'
+import { scanAndHighlight, clearHighlights, unhighlightWord, annotateWord, reannotateWord } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
 import { getKnownWords } from '../common/storage/knownWords'
@@ -175,11 +175,16 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const oldKnown = (changes.knownWords.oldValue || []) as string[]
     const newKnown = (changes.knownWords.newValue || []) as string[]
     const added = newKnown.filter(w => !oldKnown.includes(w))
-    if (added.length > 0) {
-      added.forEach(w => unhighlightWord(w, document.body))
-    } else {
-      // A word was un-marked (or the list otherwise shrank) → re-scan to restore it.
-      runScan(true)
+    const removed = oldKnown.filter(w => !newKnown.includes(w))
+    // Newly-known word → drop its annotation immediately.
+    added.forEach(w => unhighlightWord(w, document.body))
+    // Un-marked word → re-annotate ONLY that word in place (difficulty-gated), instead
+    // of a full clear+rescan which flickers the whole page.
+    if (removed.length > 0) {
+      const settings = await getSettings()
+      for (const w of removed) {
+        await reannotateWord(document.body, w, settings.proficiency, settings.pronunciation, settings.showIPA, batchLookupWords)
+      }
     }
   }
 })

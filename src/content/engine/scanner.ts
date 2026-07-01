@@ -484,13 +484,46 @@ export const clearHighlights = (root: HTMLElement | Document = document) => {
   parents.forEach(p => p.normalize())
 }
 
+// Core of the targeted single-word passes: walk blocks and annotate only occurrences
+// resolvable from `dict`/`confusionMap`, seeding the gap from blocks that already show
+// the word so it is never densified. Difficulty is gated by analyzeText (unless the
+// word is forced via `vocab`).
+const annotateSingle = (
+  root: HTMLElement | Document,
+  lower: string,
+  level: ProficiencyLevel,
+  vocab: Set<string>,
+  dict: Record<string, WordExplanation>,
+  confusionMap: Record<string, any>,
+  pronunciation: 'UK' | 'US',
+  showIPA: boolean
+) => {
+  const { blocks, blockMap } = buildBlocks(root)
+  const wordStateMap = new Map<string, WordState>()
+
+  blocks.forEach((block, blockIndex) => {
+    // A block already showing this word seeds the gap and gets no new annotation,
+    // so an already-annotated word is not densified.
+    const alreadyHere = Array.from(block.querySelectorAll('.ll-word-container'))
+      .some(c => c.getAttribute('data-word') === lower)
+    if (alreadyHere) {
+      wordStateMap.set(lower, { totalDisplayed: 0, lastBlockIndex: blockIndex })
+      return
+    }
+    const seenInBlock = new Set<string>()
+    blockMap.get(block)?.forEach(node =>
+      processTextNode(node, level, vocab, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock, new Set(), confusionMap)
+    )
+  })
+}
+
 /**
  * Targeted annotation of a single (newly-saved) word without disturbing other
  * words' spacing. A one-word dict + empty confusion map means ONLY this word can
  * match (no collateral re-annotation of other difficult/confusion-map words), and
- * blocks already showing the word seed the gap so an already-annotated word is
- * never densified. Used by the vocabulary-add surgical update instead of a full
- * non-clearing rescan (which would re-annotate gap-skipped occurrences).
+ * it is force-annotated (via `vocab`). Used by the vocabulary-add surgical update
+ * instead of a full non-clearing rescan (which would re-annotate gap-skipped
+ * occurrences of other words).
  */
 export const annotateWord = (
   root: HTMLElement | Document,
@@ -501,25 +534,37 @@ export const annotateWord = (
   showIPA: boolean = true
 ) => {
   const lower = word.toLowerCase()
-  const dict: Record<string, WordExplanation> = { [lower]: exp }
-  const vocab = new Set([lower])
-  const { blocks, blockMap } = buildBlocks(root)
-  const wordStateMap = new Map<string, WordState>()
+  annotateSingle(root, lower, level, new Set([lower]), { [lower]: exp }, {}, pronunciation, showIPA)
+}
 
-  blocks.forEach((block, blockIndex) => {
-    // A block already showing this word seeds the gap and gets no new annotation,
-    // so an already-annotated (difficult) word that gets saved is not densified.
-    const alreadyHere = Array.from(block.querySelectorAll('.ll-word-container'))
-      .some(c => c.getAttribute('data-word') === lower)
-    if (alreadyHere) {
-      wordStateMap.set(lower, { totalDisplayed: 0, lastBlockIndex: blockIndex })
-      return
-    }
-    const seenInBlock = new Set<string>()
-    blockMap.get(block)?.forEach(node =>
-      processTextNode(node, level, vocab, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock, new Set(), {})
-    )
-  })
+/**
+ * Targeted re-annotation after a word is un-marked as known: resolve its real
+ * dictionary entry (confusion-map first, else IndexedDB) and annotate it
+ * difficulty-gated & spaced — WITHOUT clearing/rescanning the whole page (avoids the
+ * flicker of a full runScan). No `vocab` force: only annotated where hard enough.
+ */
+export const reannotateWord = async (
+  root: HTMLElement | Document,
+  word: string,
+  level: ProficiencyLevel,
+  pronunciation: 'UK' | 'US',
+  showIPA: boolean,
+  dbLookup?: (words: string[]) => Promise<Record<string, WordExplanation>>
+) => {
+  const lower = word.toLowerCase()
+  // Dictionary A (confusion-map), lemma-aware — fed via the same channel so
+  // heteronyms/multi-entry words render identically to a normal scan.
+  const cmKey = [lower, ...getLemmaKeys(lower)].find(k => !!confusionMap[k])
+  if (cmKey) {
+    annotateSingle(root, lower, level, new Set(), {}, { [cmKey]: confusionMap[cmKey] }, pronunciation, showIPA)
+    return
+  }
+  // Dictionary B (IndexedDB).
+  if (!dbLookup) return
+  const res = await dbLookup([lower]).catch(() => ({} as Record<string, WordExplanation>))
+  if (Object.keys(res).length > 0) {
+    annotateSingle(root, lower, level, new Set(), res, {}, pronunciation, showIPA)
+  }
 }
 
 /**

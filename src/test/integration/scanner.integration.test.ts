@@ -1,6 +1,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { scanAndHighlight, annotateWord } from '../../content/engine/scanner'
+import { scanAndHighlight, annotateWord, reannotateWord } from '../../content/engine/scanner'
 
 describe('Scanner Integration - MS Learn Simulation', () => {
   beforeEach(() => {
@@ -102,5 +102,36 @@ describe('Scanner Integration - MS Learn Simulation', () => {
       expect(hasExt('p2')).toBe(false)
       expect(hasExt('p4')).toBe(false)
     })
+  })
+
+  it('P4: reannotateWord restores an un-marked word difficulty-gated & spaced (no full rescan)', async () => {
+    document.body.innerHTML = `<main role="main"><article>
+      <p id="q1">obscure banana alpha</p>
+      <p id="q2">obscure banana beta</p>
+      <p id="q3">obscure banana gamma</p>
+      <p id="q4">obscure banana delta</p>
+      <p id="q5">obscure banana omega</p>
+    </article></main>`
+    // 'obscure' was suppressed as known → unannotated. Un-mark → re-annotate in place.
+    const dbLookup = async (words: string[]) =>
+      (words.includes('obscure') ? { obscure: { word: 'obscure', meaning: '晦涩', cefr: ['a1'] } } : {}) as any
+
+    await reannotateWord(document.body, 'obscure', 'CEFR_A1', 'US', true, dbLookup)
+
+    const has = (id: string) => !!document.getElementById(id)?.querySelector('.ll-word-container[data-word="obscure"]')
+    expect(document.querySelectorAll('.ll-word-container[data-word="obscure"]').length).toBe(3)
+    expect(has('q1')).toBe(true)
+    expect(has('q2')).toBe(false)
+    expect(has('q3')).toBe(true)
+    expect(has('q4')).toBe(false)
+    expect(has('q5')).toBe(true)
+  })
+
+  it('P5: reannotateWord respects difficulty — an easy word is not re-annotated', async () => {
+    document.body.innerHTML = `<main role="main"><article><p id="r1">obscure text here.</p></article></main>`
+    const dbLookup = async () => ({ obscure: { word: 'obscure', meaning: 'x', cefr: ['a1'] } } as any)
+    // user at CET6: an A1 word is below the annotation threshold → must NOT annotate.
+    await reannotateWord(document.body, 'obscure', 'CET6', 'US', true, dbLookup)
+    expect(document.querySelectorAll('.ll-word-container[data-word="obscure"]').length).toBe(0)
   })
 })
