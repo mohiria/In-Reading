@@ -149,7 +149,7 @@ export const SelectionPopup = () => {
     ...calculatePosition(),
     backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
     padding: '14px', zIndex: 2147483647, fontFamily: 'sans-serif', border: '1px solid #ddd',
-    minWidth: '240px', maxWidth: '340px', color: '#333', userSelect: 'none',
+    minWidth: '240px', maxWidth: '360px', color: '#333', userSelect: 'none',
     boxSizing: 'border-box', pointerEvents: 'auto'
   }
 
@@ -264,7 +264,7 @@ export const SelectionPopup = () => {
                 border: '1px solid #4b8bf5',
                 borderRadius: '6px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '6px', fontWeight: '500', fontSize: '13px'
+                gap: '6px', fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap'
               }}
             >
               {selection.isSaved ? <><Minus size={14} /> 移出生词本</> : <><Plus size={14} /> 生词本</>}
@@ -279,7 +279,7 @@ export const SelectionPopup = () => {
                 border: isKnown ? '1px solid #319795' : '1px solid #ddd',
                 borderRadius: '6px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '6px', fontWeight: '500', fontSize: '13px'
+                gap: '6px', fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap'
               }}
             >
               {isKnown ? <><X size={14} /> 取消已掌握</> : <><Check size={14} /> 已掌握</>}
