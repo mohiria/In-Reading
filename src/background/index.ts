@@ -2,7 +2,15 @@ import { fetchFromLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
 import { UserSettings } from '../common/types'
 import { getSettings } from '../common/storage/settings'
 import { resetDictionaryCache } from '../common/storage/indexed-db'
+import { startupReconcile, handleSyncChange } from '../common/storage/syncReconcile'
 import * as TranslationService from './services/translation'
+
+// Cross-device sync of vocabulary / known-words: reconcile once at worker start,
+// and apply per-word sync deltas into chrome.storage.local (the shared read source).
+startupReconcile().catch(err => console.error('Sync startup reconcile failed', err))
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync') handleSyncChange(changes).catch(() => {})
+})
 
 /**
  * State Management (Persist across refreshes using session storage)

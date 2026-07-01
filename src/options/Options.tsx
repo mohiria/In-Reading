@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { ProficiencyLevel, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
 import { useKnownWords } from '../common/hooks/useKnownWords'
+import { getSyncOverLimit } from '../common/storage/sync'
 import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
 import { toCSV, downloadCSV, parseVocabCSV, toKnownCSV, parseKnownCSV } from '../common/utils/export'
@@ -21,8 +22,11 @@ export const Options = () => {
   const [resetMsg, setResetMsg] = useState('')
   const [vocabMsg, setVocabMsg] = useState('')
   const [knownMsg, setKnownMsg] = useState('')
+  const [syncOverLimit, setSyncOverLimit] = useState(false)
   const vocabFileRef = useRef<HTMLInputElement>(null)
   const knownFileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { getSyncOverLimit().then(setSyncOverLimit) }, [vocabulary.length, knownWords.length])
 
   const handleVocabImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -120,6 +124,14 @@ export const Options = () => {
       </header>
 
       <div style={{ display: 'grid', gap: '2rem' }}>
+        {syncOverLimit && (
+          <div style={{ background: '#fff1f0', border: '1px solid #ffccc7', color: '#cf1322', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem' }}>
+            已达云同步上限（约 500 词），超出的生词/已掌握仅保存在本机、不会同步到其它设备。跨设备可用「导出/导入 CSV」搬运。
+          </div>
+        )}
+        <div style={{ fontSize: '0.78rem', color: '#999', marginTop: '-0.5rem' }}>
+          生词本/已掌握、API Key 的跨设备同步依赖浏览器自身的扩展同步：Chrome、Edge 支持；Brave 等通常不跨设备（仅本机保存，可用 CSV 搬运）。
+        </div>
         <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
           <h2 style={{ marginTop: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Globe size={20} /> General
