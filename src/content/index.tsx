@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((req) => {
 })
 
 chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area === 'sync' && changes.settings) {
+  if (area === 'local' && changes.settings) {
     const { oldValue: oldS, newValue: newS } = changes.settings
     const needsRescan = !oldS || !newS || oldS.proficiency !== newS.proficiency || 
                         oldS.pronunciation !== newS.pronunciation || oldS.showIPA !== newS.showIPA

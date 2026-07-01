@@ -13,7 +13,7 @@ export const useSettings = () => {
     })
 
     const handleStorageChange = (changes: any, area: string) => {
-      if (area === 'sync' && changes.settings) {
+      if (area === 'local' && changes.settings) {
         setSettings(changes.settings.newValue)
       }
     }

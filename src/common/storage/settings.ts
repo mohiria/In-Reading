@@ -21,12 +21,16 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 
 export const getSettings = async (): Promise<UserSettings> => {
-  let data = await chrome.storage.sync.get('settings')
+  // Settings (incl. the LLM API key) live in storage.local so the key is NOT synced
+  // to the Google account / other devices. Legacy installs kept them in storage.sync;
+  // migrate once and scrub the cloud copy to remove the key from the account.
+  let data = await chrome.storage.local.get('settings')
   if (!data.settings) {
-    const localData = await chrome.storage.local.get('settings')
-    if (localData.settings) {
-      data = localData
-      await chrome.storage.sync.set({ settings: data.settings })
+    const syncData = await chrome.storage.sync.get('settings')
+    if (syncData.settings) {
+      data = syncData
+      await chrome.storage.local.set({ settings: data.settings })
+      await chrome.storage.sync.remove('settings')
     }
   }
 
@@ -79,5 +83,5 @@ export const saveSettings = async (settings: UserSettings): Promise<void> => {
   }
 
   settings.llm.providerConfigs = configs
-  await chrome.storage.sync.set({ settings })
+  await chrome.storage.local.set({ settings })
 }

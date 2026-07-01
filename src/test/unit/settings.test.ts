@@ -6,7 +6,7 @@ import { UserSettings } from '../../common/types'
 const chromeMock = {
   storage: {
     local: { get: vi.fn(), set: vi.fn() },
-    sync: { get: vi.fn(), set: vi.fn() }
+    sync: { get: vi.fn(), set: vi.fn(), remove: vi.fn() }
   }
 }
 vi.stubGlobal('chrome', chromeMock)
@@ -20,46 +20,45 @@ describe('Settings Storage', () => {
 
   it('should return default settings if nothing is stored', async () => {
     const settings = await getSettings()
-    // Default in settings.ts is CET4, updating test to match implementation
     expect(settings.proficiency).toBeDefined()
     expect(settings.showIPA).toBe(true)
   })
 
-  it('should return stored settings from sync correctly', async () => {
-    const mockData = { 
-      enabled: true, 
-      proficiency: 'CEFR_C1', 
-      showIPA: false, 
-      pronunciation: 'US',
-      engine: 'standard',
-      llm: { provider: 'gemini', apiKey: '' }
+  it('should read settings from storage.local (primary, no cloud sync)', async () => {
+    const mockData = {
+      enabled: true, proficiency: 'CEFR_B1', showIPA: false,
+      pronunciation: 'US', engine: 'standard', llm: { provider: 'gemini', apiKey: 'sk-x' }
     }
-    chromeMock.storage.sync.get.mockResolvedValue({ settings: mockData })
-    
-    const settings = await getSettings()
-    expect(settings.proficiency).toBe('CEFR_C1')
-    expect(settings.showIPA).toBe(false)
-  })
-
-  it('should migrate settings from local to sync if sync is empty', async () => {
-    const mockData = { 
-      enabled: true, proficiency: 'CEFR_B1', showIPA: false, 
-      pronunciation: 'US', engine: 'standard', llm: { provider: 'gemini', apiKey: '' }
-    }
-    chromeMock.storage.sync.get.mockResolvedValue({})
     chromeMock.storage.local.get.mockResolvedValue({ settings: mockData })
-    
+
     const settings = await getSettings()
     expect(settings.proficiency).toBe('CEFR_B1')
-    expect(chromeMock.storage.sync.set).toHaveBeenCalledWith({ settings: mockData })
+    // Already in local → no migration, and the key must not be written to sync.
+    expect(chromeMock.storage.sync.set).not.toHaveBeenCalled()
+    expect(chromeMock.storage.sync.remove).not.toHaveBeenCalled()
   })
 
-  it('should call chrome.storage.sync.set when saving settings', async () => {
-    const newSettings: UserSettings = { 
-      enabled: true, proficiency: 'CEFR_C2', showIPA: true, 
+  it('should migrate legacy sync settings to local and scrub the cloud copy', async () => {
+    const mockData = {
+      enabled: true, proficiency: 'CEFR_C1', showIPA: false,
+      pronunciation: 'US', engine: 'llm', llm: { provider: 'openai', apiKey: 'sk-legacy' }
+    }
+    chromeMock.storage.local.get.mockResolvedValue({})
+    chromeMock.storage.sync.get.mockResolvedValue({ settings: mockData })
+
+    const settings = await getSettings()
+    expect(settings.proficiency).toBe('CEFR_C1')
+    expect(chromeMock.storage.local.set).toHaveBeenCalledWith({ settings: mockData })
+    expect(chromeMock.storage.sync.remove).toHaveBeenCalledWith('settings')
+  })
+
+  it('should save settings to storage.local (not sync)', async () => {
+    const newSettings: UserSettings = {
+      enabled: true, proficiency: 'CEFR_C2', showIPA: true,
       pronunciation: 'US', engine: 'llm', llm: { provider: 'openai', apiKey: 'sk-test' }
     }
     await saveSettings(newSettings)
-    expect(chromeMock.storage.sync.set).toHaveBeenCalledWith({ settings: newSettings })
+    expect(chromeMock.storage.local.set).toHaveBeenCalled()
+    expect(chromeMock.storage.sync.set).not.toHaveBeenCalled()
   })
 })
