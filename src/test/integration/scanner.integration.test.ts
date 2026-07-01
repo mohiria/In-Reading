@@ -134,4 +134,28 @@ describe('Scanner Integration - MS Learn Simulation', () => {
     await reannotateWord(document.body, 'obscure', 'CET6', 'US', true, dbLookup)
     expect(document.querySelectorAll('.ll-word-container[data-word="obscure"]').length).toBe(0)
   })
+
+  it('P6: a non-clearing re-scan does not densify already-spaced words (mutation-observer safe)', async () => {
+    document.body.innerHTML = `<main role="main"><article>
+      <p id="s1">extension alpha</p>
+      <p id="s2">extension beta</p>
+      <p id="s3">extension gamma</p>
+      <p id="s4">extension delta</p>
+      <p id="s5">extension omega</p>
+    </article></main>`
+    const dict = { extension: { word: 'extension', meaning: '扩展', cefr: ['a1'] } } as any
+
+    // Initial scan (no clear): 'extension' spaced at s1/s3/s5.
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(), dict)
+    expect(document.querySelectorAll('.ll-word-container[data-word="extension"]').length).toBe(3)
+
+    // Re-scan without clearing (what MutationObserver's runScan(false) does).
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(), dict)
+
+    // Still spaced — the gap-skipped occurrences at s2/s4 were NOT filled in.
+    expect(document.querySelectorAll('.ll-word-container[data-word="extension"]').length).toBe(3)
+    const has = (id: string) => !!document.getElementById(id)?.querySelector('.ll-word-container[data-word="extension"]')
+    expect(has('s2')).toBe(false)
+    expect(has('s4')).toBe(false)
+  })
 })

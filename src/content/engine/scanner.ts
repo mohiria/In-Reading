@@ -220,6 +220,14 @@ const annotateBlocks = (
   const wordStateMap = new Map<string, WordState>()
 
   blocks.forEach((block, blockIndex) => {
+    // Seed gap state from words already annotated in this block, so a non-clearing
+    // re-scan (e.g. the MutationObserver's runScan(false)) continues their spacing
+    // instead of filling the previously gap-skipped occurrences — which would
+    // densify the page and jitter it on every dynamic-content mutation.
+    block.querySelectorAll('.ll-word-container').forEach(c => {
+      const w = c.getAttribute('data-word')
+      if (w) wordStateMap.set(w, { totalDisplayed: 0, lastBlockIndex: blockIndex })
+    })
     const seenInBlock = new Set<string>()
     blockMap.get(block)?.forEach(node => {
       processTextNode(node, level, vocabulary, dict, pronunciation, showIPA, wordStateMap, blockIndex, seenInBlock, knownWords)
