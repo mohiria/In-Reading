@@ -68,5 +68,16 @@ for (const word in confusionData) {
   });
 }
 
+// Merge curated irregular inflections (being->be, said->say, children->child, ...).
+const irregularPath = 'src/common/nlp/irregular-inflections.json';
+const irregular = JSON.parse(fs.readFileSync(irregularPath, 'utf8'));
+let irrAdded = 0;
+for (const form in irregular) {
+  if (inflectionsData[form] !== irregular[form]) {
+    inflectionsData[form] = irregular[form];
+    irrAdded++;
+  }
+}
+
 fs.writeFileSync(inflectionsPath, JSON.stringify(inflectionsData, null, 2));
-console.log(`Synced inflections.json: +${added} added, -${removed} removed (POS exact-match fix).`);
+console.log(`Synced inflections.json: +${added} added, -${removed} removed (POS exact-match fix); merged ${irrAdded} irregular forms.`);

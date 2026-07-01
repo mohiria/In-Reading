@@ -38,4 +38,23 @@ describe('getLookupCandidates — surface-first + suffix fallback', () => {
   it('C4: returns only the surface form when no strippable suffix applies', () => {
     expect(getLookupCandidates('apple')).toEqual(['apple'])
   })
+
+  it('C5: an irregular homograph resolves to its base FIRST (being -> be)', () => {
+    // "being" has its own b2 Oxford noun entry; the base must be tried first so the
+    // common gerund is not annotated. Regular gerunds (building) stay surface-first.
+    expect(getLookupCandidates('being')[0]).toBe('be')
+    expect(getLookupCandidates('said')).toContain('say')
+    expect(getLookupCandidates('children')[0]).toBe('child')
+  })
+
+  it('C6: doubled-consonant forms strip to the base (running -> run, stopped -> stop)', () => {
+    expect(getLookupCandidates('running')).toContain('run')
+    expect(getLookupCandidates('stopped')).toContain('stop')
+  })
+
+  it('C7: comparatives/superlatives strip to the base (bigger -> big, happiest -> happy)', () => {
+    expect(getLookupCandidates('bigger')).toContain('big')
+    expect(getLookupCandidates('happiest')).toContain('happy')
+    expect(getLookupCandidates('largest')).toContain('large')
+  })
 })

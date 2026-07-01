@@ -112,7 +112,7 @@
   "11": {
     "word": "absence",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈæbsəns/",
     "phon_n_am": "/ˈæbsəns/",
     "definition": "the fact of somebody being away from a place where they are usually expected to be; the occasion or period of time when somebody is away",
@@ -122,7 +122,7 @@
   "12": {
     "word": "absent",
     "type": "adjective",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈæbsənt/",
     "phon_n_am": "/ˈæbsənt/",
     "definition": "not in a place because of illness, etc.",
@@ -332,7 +332,7 @@
   "33": {
     "word": "accidentally",
     "type": "adverb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˌæksɪˈdentəli/",
     "phon_n_am": "/ˌæksɪˈdentəli/",
     "definition": "by chance; in a way that was not planned",
@@ -1322,7 +1322,7 @@
   "132": {
     "word": "afterwards",
     "type": "adverb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈɑːftəwədz/",
     "phon_n_am": "/ˈæftərwərdz/",
     "definition": "at a later time; after an event that has already been mentioned",
@@ -1732,7 +1732,7 @@
   "173": {
     "word": "alike",
     "type": "adjective",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/əˈlaɪk/",
     "phon_n_am": "/əˈlaɪk/",
     "definition": "very similar",
@@ -1742,7 +1742,7 @@
   "174": {
     "word": "alike",
     "type": "adverb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/əˈlaɪk/",
     "phon_n_am": "/əˈlaɪk/",
     "definition": "in a very similar way",
@@ -2132,7 +2132,7 @@
   "213": {
     "word": "ambulance",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/ˈæmbjələns/",
     "phon_n_am": "/ˈæmbjələns/",
     "definition": "a vehicle with special equipment, used for taking sick or injured people to a hospital",
@@ -2302,7 +2302,7 @@
   "230": {
     "word": "anger",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/ˈæŋɡə(r)/",
     "phon_n_am": "/ˈæŋɡər/",
     "definition": "the strong feeling that you have when something has happened that you think is bad and unfair",
@@ -2362,7 +2362,7 @@
   "236": {
     "word": "anniversary",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˌænɪˈvɜːsəri/",
     "phon_n_am": "/ˌænɪˈvɜːrsəri/",
     "definition": "a date that is an exact number of years after the date of an important or special event",
@@ -2502,7 +2502,7 @@
   "250": {
     "word": "anxiety",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/æŋˈzaɪəti/",
     "phon_n_am": "/æŋˈzaɪəti/",
     "definition": "the state of feeling nervous or worried that something bad is going to happen",
@@ -2512,7 +2512,7 @@
   "251": {
     "word": "anxious",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈæŋkʃəs/",
     "phon_n_am": "/ˈæŋkʃəs/",
     "definition": "feeling worried or nervous",
@@ -2652,7 +2652,7 @@
   "265": {
     "word": "apology",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/əˈpɒlədʒi/",
     "phon_n_am": "/əˈpɑːlədʒi/",
     "definition": "a word or statement saying sorry for something that has been done wrong or that causes a problem",
@@ -2752,7 +2752,7 @@
   "275": {
     "word": "appetite",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈæpɪtaɪt/",
     "phon_n_am": "/ˈæpɪtaɪt/",
     "definition": "physical desire for food",
@@ -4362,7 +4362,7 @@
   "436": {
     "word": "balloon",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/bəˈluːn/",
     "phon_n_am": "/bəˈluːn/",
     "definition": "a small bag made of very thin rubber that becomes larger and rounder when you fill it with air or gas. Balloons are brightly coloured and used as decorations or toys.",
@@ -4592,7 +4592,7 @@
   "459": {
     "word": "basket",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/ˈbɑːskɪt/",
     "phon_n_am": "/ˈbæskɪt/",
     "definition": "a container for holding or carrying things. Baskets are made of long thin pieces of material that bends and twists easily, for example plastic, wire or wicker.",
@@ -5012,7 +5012,7 @@
   "501": {
     "word": "being",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈbiːɪŋ/",
     "phon_n_am": "/ˈbiːɪŋ/",
     "definition": "existence",
@@ -5102,7 +5102,7 @@
   "510": {
     "word": "bench",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "a2",
     "phon_br": "/bentʃ/",
     "phon_n_am": "/bentʃ/",
     "definition": "a long seat for two or more people, usually made of wood",
@@ -5142,7 +5142,7 @@
   "514": {
     "word": "beneath",
     "type": "preposition",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/bɪˈniːθ/",
     "phon_n_am": "/bɪˈniːθ/",
     "definition": "in or to a lower position than somebody/something; under somebody/something",
@@ -5202,7 +5202,7 @@
   "520": {
     "word": "beside",
     "type": "preposition",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/bɪˈsaɪd/",
     "phon_n_am": "/bɪˈsaɪd/",
     "definition": "next to or at the side of somebody/something",
@@ -5672,7 +5672,7 @@
   "567": {
     "word": "blanket",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/ˈblæŋkɪt/",
     "phon_n_am": "/ˈblæŋkɪt/",
     "definition": "a large cover, often made of wool, used especially on beds to keep people warm",
@@ -5702,7 +5702,7 @@
   "570": {
     "word": "bleed",
     "type": "verb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/bliːd/",
     "phon_n_am": "/bliːd/",
     "definition": "to lose blood, especially from a wound or an injury",
@@ -5752,7 +5752,7 @@
   "575": {
     "word": "blind",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/blaɪnd/",
     "phon_n_am": "/blaɪnd/",
     "definition": "not able to see",
@@ -6182,7 +6182,7 @@
   "618": {
     "word": "bounce",
     "type": "verb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/baʊns/",
     "phon_n_am": "/baʊns/",
     "definition": "if something bounces or you bounce it, it moves quickly away from a surface it has just hit or you make it do this",
@@ -6402,7 +6402,7 @@
   "640": {
     "word": "breast",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/brest/",
     "phon_n_am": "/brest/",
     "definition": "either of the two round soft parts at the front of a woman’s body that produce milk when she has had a baby",
@@ -7222,7 +7222,7 @@
   "722": {
     "word": "cancer",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈkænsə(r)/",
     "phon_n_am": "/ˈkænsər/",
     "definition": "a serious disease in which growths of cells, also called cancers, form in the body and kill normal body cells. The disease often causes death.",
@@ -8312,7 +8312,7 @@
   "831": {
     "word": "cheek",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/tʃiːk/",
     "phon_n_am": "/tʃiːk/",
     "definition": "either side of the face below the eyes",
@@ -12282,7 +12282,7 @@
   "1228": {
     "word": "crack",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/kræk/",
     "phon_n_am": "/kræk/",
     "definition": "a line on the surface of something where it has broken but not split into separate parts",
@@ -12292,7 +12292,7 @@
   "1229": {
     "word": "crack",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/kræk/",
     "phon_n_am": "/kræk/",
     "definition": "to break without dividing into separate parts; to break something in this way",
@@ -12322,7 +12322,7 @@
   "1232": {
     "word": "crash",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/kræʃ/",
     "phon_n_am": "/kræʃ/",
     "definition": "an accident in which a vehicle hits something, for example another vehicle, usually causing damage and often injuring or killing the passengers",
@@ -12332,7 +12332,7 @@
   "1233": {
     "word": "crash",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/kræʃ/",
     "phon_n_am": "/kræʃ/",
     "definition": "if a vehicle crashes or the driver crashes it, it hits an object or another vehicle, causing damage",
@@ -13982,7 +13982,7 @@
   "1398": {
     "word": "delighted",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dɪˈlaɪtɪd/",
     "phon_n_am": "/dɪˈlaɪtɪd/",
     "definition": "very pleased",
@@ -14252,7 +14252,7 @@
   "1425": {
     "word": "depressed",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dɪˈprest/",
     "phon_n_am": "/dɪˈprest/",
     "definition": "very sad and without hope",
@@ -14262,7 +14262,7 @@
   "1426": {
     "word": "depressing",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dɪˈpresɪŋ/",
     "phon_n_am": "/dɪˈpresɪŋ/",
     "definition": "making you feel very sad and without enthusiasm",
@@ -14922,7 +14922,7 @@
   "1492": {
     "word": "dig",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dɪɡ/",
     "phon_n_am": "/dɪɡ/",
     "definition": "to make a hole in the ground or to move soil from one place to another using your hands, a tool or a machine",
@@ -15172,7 +15172,7 @@
   "1517": {
     "word": "disappoint",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˌdɪsəˈpɔɪnt/",
     "phon_n_am": "/ˌdɪsəˈpɔɪnt/",
     "definition": "to make somebody feel sad because something that they hope for or expect to happen does not happen or is not as good as they hoped",
@@ -15712,7 +15712,7 @@
   "1571": {
     "word": "disturb",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dɪˈstɜːb/",
     "phon_n_am": "/dɪˈstɜːrb/",
     "definition": "to interrupt somebody when they are trying to work, sleep, etc.",
@@ -16272,7 +16272,7 @@
   "1627": {
     "word": "drag",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/dræɡ/",
     "phon_n_am": "/dræɡ/",
     "definition": "to pull somebody/something along with effort and difficulty",
@@ -16732,7 +16732,7 @@
   "1673": {
     "word": "eager",
     "type": "adjective",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈiːɡə(r)/",
     "phon_n_am": "/ˈiːɡər/",
     "definition": "very interested and excited by something that is going to happen or about something that you want to do; showing this",
@@ -17252,7 +17252,7 @@
   "1725": {
     "word": "elderly",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈeldəli/",
     "phon_n_am": "/ˈeldərli/",
     "definition": "used as a polite word for ‘old’",
@@ -17852,7 +17852,7 @@
   "1785": {
     "word": "endless",
     "type": "adjective",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈendləs/",
     "phon_n_am": "/ˈendləs/",
     "definition": "very large in size or amount and seeming to have no end",
@@ -20462,7 +20462,7 @@
   "2046": {
     "word": "feather",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈfeðə(r)/",
     "phon_n_am": "/ˈfeðər/",
     "definition": "one of the many soft light parts covering a bird’s body",
@@ -20652,7 +20652,7 @@
   "2065": {
     "word": "fever",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈfiːvə(r)/",
     "phon_n_am": "/ˈfiːvər/",
     "definition": "a medical condition in which a person has a temperature that is higher than normal",
@@ -21292,7 +21292,7 @@
   "2129": {
     "word": "flame",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/fleɪm/",
     "phon_n_am": "/fleɪm/",
     "definition": "a hot bright stream of burning gas that comes from something that is on fire",
@@ -21342,7 +21342,7 @@
   "2134": {
     "word": "flavour",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈfleɪvə(r)/",
     "phon_n_am": "/ˈfleɪvər/",
     "definition": "how food or drink tastes",
@@ -21392,7 +21392,7 @@
   "2139": {
     "word": "flesh",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/fleʃ/",
     "phon_n_am": "/fleʃ/",
     "definition": "the soft substance between the skin and bones of animal or human bodies",
@@ -21432,7 +21432,7 @@
   "2143": {
     "word": "float",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/fləʊt/",
     "phon_n_am": "/fləʊt/",
     "definition": "to move slowly on water or in the air",
@@ -22702,7 +22702,7 @@
   "2270": {
     "word": "funeral",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈfjuːnərəl/",
     "phon_n_am": "/ˈfjuːnərəl/",
     "definition": "a ceremony, often a religious one, for burying or cremating (= burning) a dead person",
@@ -22732,7 +22732,7 @@
   "2273": {
     "word": "furious",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈfjʊəriəs/",
     "phon_n_am": "/ˈfjʊriəs/",
     "definition": "very angry",
@@ -23562,7 +23562,7 @@
   "2356": {
     "word": "grab",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ɡræb/",
     "phon_n_am": "/ɡræb/",
     "definition": "to take or hold somebody/something with your hand suddenly or roughly",
@@ -23772,7 +23772,7 @@
   "2377": {
     "word": "grave",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ɡreɪv/",
     "phon_n_am": "/ɡreɪv/",
     "definition": "a place in the ground where a dead person is buried",
@@ -23892,7 +23892,7 @@
   "2389": {
     "word": "grin",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ɡrɪn/",
     "phon_n_am": "/ɡrɪn/",
     "definition": "a wide smile",
@@ -23902,7 +23902,7 @@
   "2390": {
     "word": "grin",
     "type": "verb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ɡrɪn/",
     "phon_n_am": "/ɡrɪn/",
     "definition": "to smile widely",
@@ -24712,7 +24712,7 @@
   "2471": {
     "word": "heal",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/hiːl/",
     "phon_n_am": "/hiːl/",
     "definition": "to become healthy again; to make something healthy again",
@@ -24762,7 +24762,7 @@
   "2476": {
     "word": "hearing",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈhɪərɪŋ/",
     "phon_n_am": "/ˈhɪrɪŋ/",
     "definition": "the ability to hear",
@@ -24842,7 +24842,7 @@
   "2484": {
     "word": "heel",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/hiːl/",
     "phon_n_am": "/hiːl/",
     "definition": "the back part of the foot below the ankle",
@@ -24912,7 +24912,7 @@
   "2491": {
     "word": "helmet",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈhelmɪt/",
     "phon_n_am": "/ˈhelmɪt/",
     "definition": "a type of hard hat that protects the head, worn, for example, by a police officer, a soldier or a person riding a bike or motorbike or playing some sports",
@@ -25042,7 +25042,7 @@
   "2504": {
     "word": "hesitate",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈhezɪteɪt/",
     "phon_n_am": "/ˈhezɪteɪt/",
     "definition": "to be slow to speak or act because you feel uncertain or nervous",
@@ -25412,7 +25412,7 @@
   "2541": {
     "word": "hollow",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈhɒləʊ/",
     "phon_n_am": "/ˈhɑːləʊ/",
     "definition": "having a hole or empty space inside",
@@ -26402,7 +26402,7 @@
   "2640": {
     "word": "impatient",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ɪmˈpeɪʃnt/",
     "phon_n_am": "/ɪmˈpeɪʃnt/",
     "definition": "annoyed by somebody/something, especially because you have to wait for a long time",
@@ -28342,7 +28342,7 @@
   "2834": {
     "word": "invisible",
     "type": "adjective",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ɪnˈvɪzəbl/",
     "phon_n_am": "/ɪnˈvɪzəbl/",
     "definition": "that cannot be seen",
@@ -29062,7 +29062,7 @@
   "2906": {
     "word": "kidney",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈkɪdni/",
     "phon_n_am": "/ˈkɪdni/",
     "definition": "either of the two organs in the body that remove waste products from the blood and produce urine",
@@ -31472,7 +31472,7 @@
   "3147": {
     "word": "lung",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/lʌŋ/",
     "phon_n_am": "/lʌŋ/",
     "definition": "either of the two organs in the chest that you use for breathing",
@@ -32702,7 +32702,7 @@
   "3270": {
     "word": "melt",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/melt/",
     "phon_n_am": "/melt/",
     "definition": "to become or make something become liquid as a result of heating",
@@ -34292,7 +34292,7 @@
   "3429": {
     "word": "naked",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈneɪkɪd/",
     "phon_n_am": "/ˈneɪkɪd/",
     "definition": "not wearing any clothes",
@@ -34522,7 +34522,7 @@
   "3452": {
     "word": "nearby",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˌnɪəˈbaɪ/",
     "phon_n_am": "/ˌnɪrˈbaɪ/",
     "definition": "near in position; not far away",
@@ -34532,7 +34532,7 @@
   "3453": {
     "word": "nearby",
     "type": "adverb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˌnɪəˈbaɪ/",
     "phon_n_am": "/ˌnɪrˈbaɪ/",
     "definition": "a short distance from somebody/something; not far away",
@@ -34972,7 +34972,7 @@
   "3497": {
     "word": "nightmare",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈnaɪtmeə(r)/",
     "phon_n_am": "/ˈnaɪtmer/",
     "definition": "a dream that is very frightening or unpleasant",
@@ -35152,7 +35152,7 @@
   "3515": {
     "word": "nonsense",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/ˈnɒnsns/",
     "phon_n_am": "/ˈnɑːnsens/",
     "definition": "ideas, statements or beliefs that you think are silly or not true",
@@ -37412,7 +37412,7 @@
   "3741": {
     "word": "panic",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈpænɪk/",
     "phon_n_am": "/ˈpænɪk/",
     "definition": "a sudden feeling of great fear that cannot be controlled and prevents you from thinking clearly",
@@ -37962,7 +37962,7 @@
   "3796": {
     "word": "pause",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/pɔːz/",
     "phon_n_am": "/pɔːz/",
     "definition": "a period of time during which somebody stops talking or stops what they are doing",
@@ -37972,7 +37972,7 @@
   "3797": {
     "word": "pause",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/pɔːz/",
     "phon_n_am": "/pɔːz/",
     "definition": "to stop talking or doing something for a short time before continuing",
@@ -38692,7 +38692,7 @@
   "3869": {
     "word": "pill",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/pɪl/",
     "phon_n_am": "/pɪl/",
     "definition": "a small flat round piece of medicine that you swallow whole, without biting it",
@@ -40052,7 +40052,7 @@
   "4005": {
     "word": "pregnant",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈpreɡnənt/",
     "phon_n_am": "/ˈpreɡnənt/",
     "definition": "having a baby or young animal developing inside her/its body",
@@ -42492,7 +42492,7 @@
   "4249": {
     "word": "raw",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/rɔː/",
     "phon_n_am": "/rɔː/",
     "definition": "not cooked",
@@ -42972,7 +42972,7 @@
   "4297": {
     "word": "recover",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/rɪˈkʌvə(r)/",
     "phon_n_am": "/rɪˈkʌvər/",
     "definition": "to get well again after being ill, hurt, etc.",
@@ -45972,7 +45972,7 @@
   "4597": {
     "word": "scare",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/skeə(r)/",
     "phon_n_am": "/sker/",
     "definition": "to frighten somebody",
@@ -46162,7 +46162,7 @@
   "4616": {
     "word": "scratch",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/skrætʃ/",
     "phon_n_am": "/skrætʃ/",
     "definition": "a mark, a cut or an injury made by scratching somebody’s skin or the surface of something",
@@ -46172,7 +46172,7 @@
   "4617": {
     "word": "scratch",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/skrætʃ/",
     "phon_n_am": "/skrætʃ/",
     "definition": "to rub your skin with your nails, usually because it is itching",
@@ -46182,7 +46182,7 @@
   "4618": {
     "word": "scream",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/skriːm/",
     "phon_n_am": "/skriːm/",
     "definition": "a loud high shout made by somebody who is hurt, frightened, excited, etc.; a loud high noise",
@@ -46192,7 +46192,7 @@
   "4619": {
     "word": "scream",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/skriːm/",
     "phon_n_am": "/skriːm/",
     "definition": "to give a loud, high shout, because you are hurt, frightened, excited, etc.",
@@ -47102,7 +47102,7 @@
   "4710": {
     "word": "shadow",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/ˈʃædəʊ/",
     "phon_n_am": "/ˈʃædəʊ/",
     "definition": "the dark shape that somebody/something’s form makes on a surface, for example on the ground, when they are between the light and the surface",
@@ -47142,7 +47142,7 @@
   "4714": {
     "word": "shallow",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈʃæləʊ/",
     "phon_n_am": "/ˈʃæləʊ/",
     "definition": "not having much distance between the top or surface and the bottom",
@@ -47732,7 +47732,7 @@
   "4773": {
     "word": "sigh",
     "type": "noun",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/saɪ/",
     "phon_n_am": "/saɪ/",
     "definition": "an act or the sound of sighing",
@@ -47742,7 +47742,7 @@
   "4774": {
     "word": "sigh",
     "type": "verb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/saɪ/",
     "phon_n_am": "/saɪ/",
     "definition": "to take and then let out a long deep breath that can be heard, to show that you are disappointed, sad, tired, etc.",
@@ -49622,7 +49622,7 @@
   "4962": {
     "word": "spill",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/spɪl/",
     "phon_n_am": "/spɪl/",
     "definition": "to flow over the edge of a container by accident; to make liquid do this",
@@ -49642,7 +49642,7 @@
   "4964": {
     "word": "spin",
     "type": "verb",
-    "cefr": "c1",
+    "cefr": "b1",
     "phon_br": "/spɪn/",
     "phon_n_am": "/spɪn/",
     "definition": "to turn round and round quickly; to make something do this",
@@ -50462,7 +50462,7 @@
   "5046": {
     "word": "sticky",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈstɪki/",
     "phon_n_am": "/ˈstɪki/",
     "definition": "made of or covered in a substance that sticks to things that touch it",
@@ -50722,7 +50722,7 @@
   "5072": {
     "word": "stream",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/striːm/",
     "phon_n_am": "/striːm/",
     "definition": "a small, narrow river",
@@ -52122,7 +52122,7 @@
   "5212": {
     "word": "sweep",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "a2",
     "phon_br": "/swiːp/",
     "phon_n_am": "/swiːp/",
     "definition": "to clean a room, surface, etc. using a broom (= a type of brush on a long handle)",
@@ -52502,7 +52502,7 @@
   "5250": {
     "word": "tap",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/tæp/",
     "phon_n_am": "/tæp/",
     "definition": "a device for controlling the flow of water from a pipe into a bath or sink",
@@ -52672,7 +52672,7 @@
   "5267": {
     "word": "tear",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/teə(r)/",
     "phon_n_am": "/ter/",
     "definition": "a hole that has been made in something by tearing",
@@ -52682,7 +52682,7 @@
   "5268": {
     "word": "tear",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/teə(r)/",
     "phon_n_am": "/ter/",
     "definition": "to damage something by pulling it apart or into pieces or by cutting it on something sharp; to become damaged in this way",
@@ -53042,7 +53042,7 @@
   "5304": {
     "word": "terrify",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈterɪfaɪ/",
     "phon_n_am": "/ˈterɪfaɪ/",
     "definition": "to make somebody feel extremely frightened",
@@ -55452,7 +55452,7 @@
   "5545": {
     "word": "tunnel",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈtʌnl/",
     "phon_n_am": "/ˈtʌnl/",
     "definition": "a passage built underground, for example to allow a road or railway to go through a hill, under a river, etc.",
@@ -55732,7 +55732,7 @@
   "5573": {
     "word": "unconscious",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ʌnˈkɒnʃəs/",
     "phon_n_am": "/ʌnˈkɑːnʃəs/",
     "definition": "in a state like sleep because of an injury or illness, and not able to use your senses",
@@ -55912,7 +55912,7 @@
   "5591": {
     "word": "unfold",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ʌnˈfəʊld/",
     "phon_n_am": "/ʌnˈfəʊld/",
     "definition": "to spread open or flat something that has previously been folded; to become open and flat",
@@ -57352,7 +57352,7 @@
   "5735": {
     "word": "wander",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈwɒndə(r)/",
     "phon_n_am": "/ˈwɑːndər/",
     "definition": "to walk slowly around or to a place, often without any particular sense of purpose or direction",
@@ -57832,7 +57832,7 @@
   "5783": {
     "word": "weird",
     "type": "adjective",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/wɪəd/",
     "phon_n_am": "/wɪrd/",
     "definition": "very strange or unusual and difficult to explain",
@@ -58232,7 +58232,7 @@
   "5823": {
     "word": "whisper",
     "type": "noun",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈwɪspə(r)/",
     "phon_n_am": "/ˈwɪspər/",
     "definition": "a low, quiet voice or the sound it makes",
@@ -58242,7 +58242,7 @@
   "5824": {
     "word": "whisper",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ˈwɪspə(r)/",
     "phon_n_am": "/ˈwɪspər/",
     "definition": "to speak very quietly to somebody so that other people cannot hear what you are saying",
@@ -59112,7 +59112,7 @@
   "5911": {
     "word": "wrap",
     "type": "verb",
-    "cefr": "b2",
+    "cefr": "b1",
     "phon_br": "/ræp/",
     "phon_n_am": "/ræp/",
     "definition": "to cover something completely in paper or other material, for example when you are giving it as a present",

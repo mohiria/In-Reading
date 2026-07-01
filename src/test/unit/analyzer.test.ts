@@ -5,7 +5,9 @@ import { WordExplanation } from '../../common/types'
 // Mock inflections
 vi.mock('../../common/nlp/inflections.json', () => ({
   default: {
-    'tears': 'tear'
+    'tears': 'tear',
+    'being': 'be',
+    'said': 'say'
   }
 }))
 
@@ -118,5 +120,24 @@ describe('Analyzer Logic - Accented (Latin) words', () => {
     expect(results[0].word).toBe('café')
     expect(results[0].index).toBe(2)
     expect(results[0].length).toBe(4)
+  })
+})
+
+describe('Analyzer Logic - Lemmatization suppresses easy inflections', () => {
+  it('L1: "being" resolves to base "be" (a1) and is NOT annotated at CET4', () => {
+    // dict carries both the easy base and the b2 homograph; the base (lemma) must win.
+    const dict = {
+      be: { word: 'be', meaning: '是', cefr: ['a1'] },
+      being: { word: 'being', meaning: '存在', cefr: ['b2'] }
+    } as any
+    const results = analyzeText('the being of it', 'CET4', new Set(), dict, 'US', {})
+    expect(results.length).toBe(0)
+  })
+
+  it('L2: a genuine b2 word (not an easy inflection) is still annotated at CET4', () => {
+    const dict = { abandon: { word: 'abandon', meaning: '抛弃', cefr: ['b2'] } } as any
+    const results = analyzeText('they abandon it', 'CET4', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('abandon')
   })
 })

@@ -2,6 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb'
 import pako from 'pako'
 import { WordExplanation } from '../types'
 import inflections from '../nlp/inflections.json'
+import irregular from '../nlp/irregular-inflections.json'
 
 /**
  * Ordered keys to look up for a surface word: the surface form first, then its
@@ -22,8 +23,17 @@ export const getLemmaKeys = (word: string): string[] => {
  */
 export const getLookupCandidates = (word: string): string[] => {
   const lower = word.toLowerCase()
-  const out: string[] = [lower]
+  const out: string[] = []
   const push = (w: string) => { if (w && w.length >= 2 && !out.includes(w)) out.push(w) }
+
+  // Irregular inflection (being->be, said->say, children->child): resolve to the base
+  // FIRST so a rare homograph entry (e.g. the b2 noun "being") doesn't shadow the far
+  // more common inflection. Regular derived words (building/meeting) are NOT in the
+  // irregular map, so they keep surface-first and use their own entry.
+  const irr = (irregular as Record<string, string>)[lower]
+  if (irr) push(irr)
+
+  push(lower)
 
   const lemma = (inflections as Record<string, string>)[lower]
   if (lemma) push(lemma)
@@ -33,6 +43,26 @@ export const getLookupCandidates = (word: string): string[] => {
   if (lower.endsWith('s')) push(lower.slice(0, -1)) // victims -> victim
   if (lower.endsWith('ed')) { push(lower.slice(0, -2)); push(lower.slice(0, -1)) } // suffered -> suffer; used -> use
   if (lower.endsWith('ing')) { push(lower.slice(0, -3)); push(lower.slice(0, -3) + 'e') } // making -> mak/make
+
+  // Doubled-consonant regular forms: running -> run, stopped -> stop.
+  if (lower.endsWith('ing') || lower.endsWith('ed')) {
+    const stem = lower.slice(0, lower.endsWith('ing') ? -3 : -2)
+    if (stem.length >= 3 && stem[stem.length - 1] === stem[stem.length - 2]) push(stem.slice(0, -1))
+  }
+
+  // Comparative / superlative: faster -> fast, bigger -> big, happier -> happy, largest -> large.
+  if (lower.endsWith('ier')) push(lower.slice(0, -3) + 'y')
+  else if (lower.endsWith('er')) {
+    push(lower.slice(0, -2)); push(lower.slice(0, -1))
+    const stem = lower.slice(0, -2)
+    if (stem.length >= 3 && stem[stem.length - 1] === stem[stem.length - 2]) push(stem.slice(0, -1))
+  }
+  if (lower.endsWith('iest')) push(lower.slice(0, -4) + 'y')
+  else if (lower.endsWith('est')) {
+    push(lower.slice(0, -3)); push(lower.slice(0, -2))
+    const stem = lower.slice(0, -3)
+    if (stem.length >= 3 && stem[stem.length - 1] === stem[stem.length - 2]) push(stem.slice(0, -1))
+  }
 
   return out
 }
