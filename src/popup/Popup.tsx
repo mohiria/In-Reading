@@ -5,6 +5,7 @@ import { useVocabulary } from '../common/hooks/useVocabulary'
 import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { Trash2, Settings, BookOpen, Cpu, Globe, Keyboard } from 'lucide-react'
 import { formatIPA } from '../common/utils/format'
+import { hasHostPermission, requestHostPermission } from '../common/utils/permissions'
 
 export const Popup = () => {
   const { settings, updateSettings } = useSettings()
@@ -13,6 +14,14 @@ export const Popup = () => {
   const [tabEnabled, setTabEnabled] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
   const [vocabQuery, setVocabQuery] = useState('')
+  const [customPerm, setCustomPerm] = useState(false)
+
+  const isCustomProvider = settings?.llm.provider === 'custom'
+  const customBaseUrl = (settings?.llm.baseUrl || '').trim()
+  useEffect(() => {
+    if (isCustomProvider && customBaseUrl) hasHostPermission(customBaseUrl).then(setCustomPerm)
+    else setCustomPerm(false)
+  }, [isCustomProvider, customBaseUrl])
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -231,6 +240,18 @@ export const Popup = () => {
             placeholder={LLM_DEFAULT_URLS[provider]}
             style={errStyle(baseUrlMissing)}
           />
+          {isCustom && customBaseUrl && (
+            customPerm ? (
+              <div style={{ fontSize: '0.7rem', color: '#319795', marginTop: '0.3rem' }}>✓ 已授权访问该地址</div>
+            ) : (
+              <button
+                onClick={async () => setCustomPerm(await requestHostPermission(customBaseUrl))}
+                style={{ marginTop: '0.3rem', padding: '4px 10px', borderRadius: '4px', border: '1px solid #4b8bf5', background: 'white', color: '#4b8bf5', cursor: 'pointer', fontSize: '0.75rem' }}
+              >
+                授权访问该地址
+              </button>
+            )
+          )}
         </div>
       </div>
     )

@@ -4,6 +4,7 @@ import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
 import { useKnownWords } from '../common/hooks/useKnownWords'
 import { getSyncOverLimit } from '../common/storage/sync'
+import { hasHostPermission, requestHostPermission } from '../common/utils/permissions'
 import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { groupByAddedTime } from '../common/utils/vocab'
 import { toCSV, downloadCSV, parseVocabCSV, toKnownCSV, parseKnownCSV } from '../common/utils/export'
@@ -23,10 +24,18 @@ export const Options = () => {
   const [vocabMsg, setVocabMsg] = useState('')
   const [knownMsg, setKnownMsg] = useState('')
   const [syncOverLimit, setSyncOverLimit] = useState(false)
+  const [customPerm, setCustomPerm] = useState(false)
   const vocabFileRef = useRef<HTMLInputElement>(null)
   const knownFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { getSyncOverLimit().then(setSyncOverLimit) }, [vocabulary.length, knownWords.length])
+
+  const isCustomProvider = settings?.llm.provider === 'custom'
+  const customBaseUrl = (settings?.llm.baseUrl || '').trim()
+  useEffect(() => {
+    if (isCustomProvider && customBaseUrl) hasHostPermission(customBaseUrl).then(setCustomPerm)
+    else setCustomPerm(false)
+  }, [isCustomProvider, customBaseUrl])
 
   const handleVocabImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -234,6 +243,23 @@ export const Options = () => {
               placeholder={LLM_DEFAULT_URLS[settings.llm.provider]}
               style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: baseUrlMissing ? errBorder : okBorder }}
             />
+            {isCustom && customBaseUrl && (
+              customPerm ? (
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#319795' }}>✓ 已授权访问该地址</p>
+              ) : (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <button
+                    onClick={async () => setCustomPerm(await requestHostPermission(customBaseUrl))}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #4b8bf5', background: 'white', color: '#4b8bf5', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >
+                    授权访问该地址
+                  </button>
+                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#999' }}>
+                    自定义地址需授权后才能调用（浏览器会弹出权限确认）。
+                  </p>
+                </div>
+              )
+            )}
           </div>
         </section>
 
