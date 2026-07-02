@@ -38,9 +38,13 @@ export async function fetchFromYoudaoMT(text: string) {
   const url = `https://fanyi.youdao.com/translate?&doctype=json&type=AUTO&i=${encodeURIComponent(text)}`
   const response = await fetch(url)
   const data = await response.json()
-  if (data?.translateResult?.[0]) {
-    const meaning = data.translateResult[0].map((r: any) => r.tgt).join('')
-    return { word: text, meaning, source: 'Youdao MT' }
+  if (data?.translateResult?.length) {
+    // translateResult is a 2D array (one inner array per line/sentence). Join ALL of
+    // them, not just [0], so multi-sentence selections translate fully.
+    const meaning = data.translateResult
+      .map((line: any[]) => (line || []).map((r: any) => r.tgt).join(''))
+      .join('')
+    if (meaning) return { word: text, meaning, source: 'Youdao MT' }
   }
   throw new Error('Youdao MT failed')
 }
@@ -94,14 +98,12 @@ export async function fetchFromGoogle(text: string) {
   const googleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`
   const response = await fetch(googleUrl)
   const data = await response.json()
-  
-  if (data?.[0]?.[0]?.[0]) {
-    return {
-      word: text,
-      meaning: data[0][0][0],
-      ipa: '', 
-      source: 'Google'
-    }
+
+  if (data?.[0]?.length) {
+    // data[0] is an array of translated segments ([tgt, src, ...]). Join ALL segments,
+    // not just the first, so multi-sentence selections translate fully.
+    const meaning = data[0].map((seg: any) => (seg?.[0] || '')).join('')
+    if (meaning) return { word: text, meaning, ipa: '', source: 'Google' }
   }
   throw new Error('Google Translate failed')
 }
