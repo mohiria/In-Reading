@@ -70,7 +70,7 @@ word translation.
 - The developer does **not** sell data, does **not** use it for anything unrelated to the
   single purpose, and does **not** transfer it to the developer. Translation data goes
   directly to the third-party provider the user configured.
-- Privacy policy URL: <host PRIVACY_POLICY.md publicly and paste the URL here>.
+- Privacy policy URL: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md
 
 ## Assets checklist (must be produced separately)
 
@@ -78,5 +78,5 @@ word translation.
 - Screenshots 1280×800 (or 640×400), 1–5: annotated article, select-to-translate popup,
   toolbar popup, options page.
 - (Chrome, optional) small promo tile 440×280.
-- Public privacy-policy URL (host `PRIVACY_POLICY.md`, e.g. GitHub Pages).
+- Public privacy-policy URL: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md (live on main).
 - Support contact (email or repo issues URL).
