@@ -57,7 +57,7 @@ export const SelectionPopup = () => {
       
       const sel = window.getSelection()
       const text = sel?.toString().trim()
-      if (!sel || sel.isCollapsed || !text || text.length > 50 || !/[a-zA-Z]/.test(text)) {
+      if (!sel || sel.isCollapsed || !text || text.length > 500 || !/[a-zA-Z]/.test(text)) {
         setSelection(null)
         return
       }
@@ -170,6 +170,38 @@ export const SelectionPopup = () => {
   const currentPron = settings?.pronunciation || 'US'
   const exp = selection.explanation
   const isKnown = knownWords.includes(selection.text.toLowerCase())
+  // Vocabulary / known-words are single-word concepts; hide the save buttons for
+  // phrase / sentence selections (which only get a translation).
+  const isSingleWord = !/\s/.test(selection.text.trim())
+
+  // Long text (a sentence / paragraph) gets a reading-oriented card instead of the
+  // word layout: wider, muted original on top, a divider, then a prominent translation.
+  const isLongText = !isSingleWord && selection.text.trim().length > 40
+  if (isLongText) {
+    return (
+      <div style={{ ...style, maxWidth: '480px', minWidth: '320px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <BookOpen size={16} color="#4b8bf5" />
+          <span style={{ fontSize: '12px', color: '#888', flex: 1 }}>划词翻译</span>
+          {exp?.source && (
+            <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
+              {exp.source}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: '13px', color: '#888', lineHeight: 1.5, maxHeight: '5.5em', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+          {selection.text}
+        </div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '12px', color: '#999' }}>Translating...</div>
+        ) : exp && (
+          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee', fontSize: '15px', color: '#202124', lineHeight: 1.7, maxHeight: '50vh', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+            {exp.meaning}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   let showSingleHeaderIPA = false
   let headerIPA = ''
@@ -266,6 +298,7 @@ export const SelectionPopup = () => {
             )}
           </div>
           
+          {isSingleWord && (
           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
             <button
               onClick={onToggleVocab}
@@ -297,6 +330,7 @@ export const SelectionPopup = () => {
               {isKnown ? <><X size={14} /> 取消已掌握</> : <><Check size={14} /> 已掌握</>}
             </button>
           </div>
+          )}
         </div>
       )}
     </div>

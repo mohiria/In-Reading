@@ -132,6 +132,27 @@ describe('SelectionPopup Standardization', () => {
     expect(mockAddKnown).toHaveBeenCalledWith('tear')
   })
 
+  it('T1: a full-sentence selection is translated (>50 chars) and shows no save buttons', async () => {
+    const sentence = 'The quick brown fox jumps over the lazy dog again and again today.' // >50, <=500
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => sentence,
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, callback: any) => {
+      if (msg.type === 'GET_TAB_STATE') callback({ enabled: true })
+      if (msg.type === 'TRANSLATE_WORD') callback({ success: true, data: { word: sentence, meaning: '敏捷的棕色狐狸一次次跃过懒狗。', source: 'AI (GPT)' } })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+
+    expect(await screen.findByText('敏捷的棕色狐狸一次次跃过懒狗。')).toBeDefined()
+    // Multi-word selection → no vocabulary/known save buttons.
+    expect(screen.queryByText(/生词本/)).toBeNull()
+    expect(screen.queryByText(/已掌握/)).toBeNull()
+  })
+
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {
     // Local miss → goes to network; the returned gloss must be cached.
     ;(getAiCache as any).mockResolvedValue({})
