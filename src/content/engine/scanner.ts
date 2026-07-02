@@ -91,7 +91,12 @@ const isLikelyUI = (el: HTMLElement): boolean => {
 /**
  * Heading tags are usually ignored to preserve layout, but we allow them if they are deep inside content.
  */
-const HEADER_SELECTOR = 'H1, H2, H3, H4, H5, H6, [role="heading"]'
+// Non-semantic titles: some sites render the title as a div with a testid/role
+// instead of an h1–h6 (e.g. X/Twitter long-form Articles), so heading tags alone
+// miss them. Extend the skip list with known, site-specific title selectors — each
+// only matches that site's title element, so body prose elsewhere is unaffected.
+const NON_SEMANTIC_TITLE_SELECTOR = '[data-testid="twitter-article-title"]'
+const HEADER_SELECTOR = 'H1, H2, H3, H4, H5, H6, [role="heading"], ' + NON_SEMANTIC_TITLE_SELECTOR
 
 interface WordState {
   totalDisplayed: number

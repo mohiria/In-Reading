@@ -158,4 +158,23 @@ describe('Scanner Integration - MS Learn Simulation', () => {
     expect(has('s2')).toBe(false)
     expect(has('s4')).toBe(false)
   })
+
+  it('T-title: a non-semantic (X article) title is not annotated, but body prose still is', async () => {
+    // X long-form titles are <div data-testid="twitter-article-title">, not h1–h6.
+    // Distinct hard words in title vs body so spaced-reinforcement can't confound the body check.
+    document.body.innerHTML = `<main role="main"><article>
+      <div data-testid="twitter-article-title"><span>An obscure headline today</span></div>
+      <p id="body1">A different extension appears.</p>
+    </article></main>`
+    const dict = {
+      obscure: { word: 'obscure', meaning: '晦涩', cefr: ['a1'] },
+      extension: { word: 'extension', meaning: '扩展', cefr: ['a1'] }
+    } as any
+    await scanAndHighlight(document.body, 'CEFR_A1', new Set(), dict)
+
+    // Title (non-semantic div) must NOT be annotated.
+    expect(document.querySelector('[data-testid="twitter-article-title"]')?.querySelectorAll('.ll-word-container').length).toBe(0)
+    // Body prose is unaffected — still annotated (guards against over-fix).
+    expect(document.getElementById('body1')?.querySelector('.ll-word-container[data-word="extension"]')).toBeTruthy()
+  })
 })
