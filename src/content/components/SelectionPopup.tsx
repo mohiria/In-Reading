@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
-import { lookupWordInDB } from '../../common/storage/indexed-db'
+import { useKnownWords } from '../../common/hooks/useKnownWords'
+import { lookupWordInDB, getAiCache, putAiCache } from '../../common/storage/indexed-db'
 import { WordExplanation } from '../../common/types'
-import { BookOpen, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Plus, Minus, Check, X } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
@@ -11,6 +12,7 @@ import confusionMap from '../../../public/dictionaries/confusion-map.json'
 export const SelectionPopup = () => {
   const { settings } = useSettings()
   const { vocabulary, addWord, removeWord } = useVocabulary()
+  const { knownWords, addKnown, removeKnown } = useKnownWords()
   const [loading, setLoading] = useState(false)
   const [tabEnabled, setTabEnabled] = useState(false)
   const [selection, setSelection] = useState<{
@@ -22,7 +24,15 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const checkState = () => {
-      chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (res) => setTabEnabled(!!res?.enabled))
+      // The 2s interval outlives the extension context after a reload; a chrome.*
+      // call from the dead context throws "Extension context invalidated."
+      if (!chrome.runtime?.id) return
+      try {
+        chrome.runtime.sendMessage({ type: 'GET_TAB_STATE' }, (res) => {
+          if (chrome.runtime.lastError) return
+          setTabEnabled(!!res?.enabled)
+        })
+      } catch { /* context invalidated */ }
     }
     checkState()
 
@@ -47,7 +57,7 @@ export const SelectionPopup = () => {
       
       const sel = window.getSelection()
       const text = sel?.toString().trim()
-      if (!sel || sel.isCollapsed || !text || text.length > 50 || !/[a-zA-Z]/.test(text)) {
+      if (!sel || sel.isCollapsed || !text || text.length > 500 || !/[a-zA-Z]/.test(text)) {
         setSelection(null)
         return
       }
@@ -57,8 +67,13 @@ export const SelectionPopup = () => {
       
       // Dictionary A (Confusion Map) is now standardized
       const confusionEntry = (confusionMap as Record<string, any>)[lowerText]
-      const localExp = confusionEntry || await lookupWordInDB(text)
-      
+      let localExp: WordExplanation | null = confusionEntry || await lookupWordInDB(text)
+      if (!localExp) {
+        // Reuse a gloss already AI-backfilled on the page (instant, no network).
+        const aiHit = (await getAiCache([lowerText]))[lowerText]
+        if (aiHit) localExp = aiHit as WordExplanation
+      }
+
       const isSaved = vocabulary.some(v => v.word.toLowerCase() === lowerText)
 
       if (isSaved || localExp) {
@@ -70,15 +85,29 @@ export const SelectionPopup = () => {
 
       setSelection({ text, rect, explanation: null, isSaved: false })
       setLoading(true)
-      
-      chrome.runtime.sendMessage({ 
-        type: 'TRANSLATE_WORD', text, context: text, settings 
+
+      if (!chrome.runtime?.id) { setLoading(false); return }
+      try {
+      chrome.runtime.sendMessage({
+        type: 'TRANSLATE_WORD', text, context: text, settings
       }, (res) => {
+        if (chrome.runtime.lastError) { setLoading(false); return }
         setLoading(false)
         if (res?.success) {
           setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
+          // Cache single-word results so a repeat selection resolves instantly.
+          if (res.data?.meaning && !/\s/.test(text)) {
+            putAiCache([{
+              word: lowerText,
+              meaning: res.data.meaning,
+              ipa_us: res.data.ipa_us,
+              ipa_uk: res.data.ipa_uk,
+              source: res.data.source
+            }]).catch(() => {})
+          }
         }
       })
+      } catch { setLoading(false) /* context invalidated */ }
     }
 
     const onMouseUp = (e: MouseEvent) => {
@@ -103,6 +132,18 @@ export const SelectionPopup = () => {
     setTimeout(() => setSelection(null), 300)
   }
 
+  const onToggleKnown = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!selection) return
+    const lower = selection.text.toLowerCase()
+    if (knownWords.includes(lower)) {
+      await removeKnown(selection.text)
+    } else {
+      await addKnown(selection.text)
+    }
+    setTimeout(() => setSelection(null), 300)
+  }
+
   const calculatePosition = () => {
     if (!selection) return {}
     const { rect } = selection
@@ -120,7 +161,7 @@ export const SelectionPopup = () => {
     ...calculatePosition(),
     backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
     padding: '14px', zIndex: 2147483647, fontFamily: 'sans-serif', border: '1px solid #ddd',
-    minWidth: '240px', maxWidth: '340px', color: '#333', userSelect: 'none',
+    minWidth: '240px', maxWidth: '360px', color: '#333', userSelect: 'none',
     boxSizing: 'border-box', pointerEvents: 'auto'
   }
 
@@ -128,6 +169,39 @@ export const SelectionPopup = () => {
 
   const currentPron = settings?.pronunciation || 'US'
   const exp = selection.explanation
+  const isKnown = knownWords.includes(selection.text.toLowerCase())
+  // Vocabulary / known-words are single-word concepts; hide the save buttons for
+  // phrase / sentence selections (which only get a translation).
+  const isSingleWord = !/\s/.test(selection.text.trim())
+
+  // Long text (a sentence / paragraph) gets a reading-oriented card instead of the
+  // word layout: wider, muted original on top, a divider, then a prominent translation.
+  const isLongText = !isSingleWord && selection.text.trim().length > 40
+  if (isLongText) {
+    return (
+      <div style={{ ...style, maxWidth: '480px', minWidth: '320px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <BookOpen size={16} color="#4b8bf5" />
+          <span style={{ fontSize: '12px', color: '#888', flex: 1 }}>划词翻译</span>
+          {exp?.source && (
+            <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
+              {exp.source}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: '13px', color: '#888', lineHeight: 1.5, maxHeight: '5.5em', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+          {selection.text}
+        </div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '12px', color: '#999' }}>Translating...</div>
+        ) : exp && (
+          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee', fontSize: '15px', color: '#202124', lineHeight: 1.7, maxHeight: '50vh', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+            {exp.meaning}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   let showSingleHeaderIPA = false
   let headerIPA = ''
@@ -224,20 +298,39 @@ export const SelectionPopup = () => {
             )}
           </div>
           
-          <button 
-            onClick={onToggleVocab} 
-            style={{ 
-              width: '100%', padding: '8px', 
-              backgroundColor: selection.isSaved ? '#fff1f0' : '#4b8bf5', 
-              color: selection.isSaved ? '#ff4d4f' : 'white', 
-              border: selection.isSaved ? '1px solid #ffccc7' : 'none', 
-              borderRadius: '6px', cursor: 'pointer', marginTop: '12px', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              gap: '6px', fontWeight: '500', fontSize: '13px'
-            }}
-          >
-            {selection.isSaved ? <><Trash2 size={14} /> Remove</> : <><Plus size={14} /> Add to Vocabulary</>}
-          </button>
+          {isSingleWord && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <button
+              onClick={onToggleVocab}
+              style={{
+                flex: 1, padding: '8px',
+                backgroundColor: selection.isSaved ? '#4b8bf5' : 'transparent',
+                color: selection.isSaved ? 'white' : '#4b8bf5',
+                border: '1px solid #4b8bf5',
+                borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '6px', fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap'
+              }}
+            >
+              {selection.isSaved ? <><Minus size={14} /> 移出生词本</> : <><Plus size={14} /> 生词本</>}
+            </button>
+
+            <button
+              onClick={onToggleKnown}
+              style={{
+                flex: 1, padding: '8px',
+                backgroundColor: isKnown ? '#319795' : 'transparent',
+                color: isKnown ? 'white' : '#888',
+                border: isKnown ? '1px solid #319795' : '1px solid #ddd',
+                borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '6px', fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap'
+              }}
+            >
+              {isKnown ? <><X size={14} /> 取消已掌握</> : <><Check size={14} /> 已掌握</>}
+            </button>
+          </div>
+          )}
         </div>
       )}
     </div>

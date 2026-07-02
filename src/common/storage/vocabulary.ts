@@ -1,5 +1,6 @@
 import { SavedWord } from '../types'
 import { initDB } from './indexed-db'
+import { syncSetItem, syncRemoveItem, markSyncOverLimit, PREFIX_VOCAB, PREFIX_KNOWN } from './sync'
 
 const USER_STORE = 'user_words'
 
@@ -9,6 +10,16 @@ export const getVocabulary = async (): Promise<SavedWord[]> => {
 }
 
 export const addToVocabulary = async (word: SavedWord): Promise<void> => {
+  // Mutual exclusion: saving a word removes it from the known-words list.
+  // Inlined (not importing knownWords.ts) to avoid a circular import.
+  const lower = word.word.toLowerCase()
+  const knownData = await chrome.storage.local.get('knownWords')
+  const known: string[] = knownData.knownWords || []
+  if (known.includes(lower)) {
+    await chrome.storage.local.set({ knownWords: known.filter(w => w !== lower) })
+    await syncRemoveItem(PREFIX_KNOWN + lower) // propagate the mutual-exclusion removal
+  }
+
   const current = await getVocabulary()
   // Avoid duplicates in the list
   if (current.some(w => w.word.toLowerCase() === word.word.toLowerCase())) {
@@ -35,6 +46,11 @@ export const addToVocabulary = async (word: SavedWord): Promise<void> => {
   } catch (e) {
     console.error('Failed to save word to IndexedDB:', e)
   }
+
+  // Cross-device: one sync key per word. Over quota → keep local-only, flag for UI;
+  // a later successful sync clears the flag (so the banner is not sticky).
+  const ok = await syncSetItem(PREFIX_VOCAB + lower, word)
+  await markSyncOverLimit(!ok)
 }
 
 export const removeFromVocabulary = async (wordText: string): Promise<void> => {
@@ -51,4 +67,6 @@ export const removeFromVocabulary = async (wordText: string): Promise<void> => {
   } catch (e) {
     console.error('Failed to remove word from IndexedDB:', e)
   }
+
+  await syncRemoveItem(PREFIX_VOCAB + wordText.toLowerCase())
 }

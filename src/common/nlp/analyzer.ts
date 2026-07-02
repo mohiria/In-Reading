@@ -17,10 +17,15 @@ export const analyzeText = (
   vocabulary: Set<string> = new Set(),
   dict: Record<string, WordExplanation> = {},
   pronunciation: 'UK' | 'US' = 'US',
-  confusionMap: Record<string, any> = defaultConfusionMap
+  confusionMap: Record<string, any> = defaultConfusionMap,
+  knownWords: Set<string> = new Set()
 ): IdentifiedWord[] => {
   const results: IdentifiedWord[] = []
-  const regex = /\b[a-zA-Z]{3,}\b/g
+  // Latin-letter aware (incl. accents like é/ü/ñ) so words such as "Stéphane" or
+  // "café" are one token, not split at the accent. Hyphen-aware too: a hyphenated
+  // compound (anti-migrant) is matched as a single token (first alternative, tried
+  // greedily) rather than split into separately-annotated parts.
+  const regex = /\p{Script=Latin}+(?:-\p{Script=Latin}+)+|\p{Script=Latin}{3,}/gu
   let match
   
   const activeMap = confusionMap || defaultConfusionMap
@@ -55,10 +60,17 @@ export const analyzeText = (
       ipa: explanation.hideIPA ? undefined : getPreferredIPA(explanation, pronunciation)
     }
 
-    const isSavedWord = vocabulary.has(baseWord) || vocabulary.has(lowerWord)
+    // Also match the resolved entry's base word, so saving a base (victim)
+    // highlights its inflected forms (victims).
+    const resolvedWord = (explanation.word || '').toLowerCase()
+    const isSavedWord = vocabulary.has(baseWord) || vocabulary.has(lowerWord) || (!!resolvedWord && vocabulary.has(resolvedWord))
+    // Words the user marked as known suppress the difficulty path (but an explicit
+    // save still wins). Three-form check mirrors isSavedWord so a known base also
+    // covers its inflections.
+    const isKnown = knownWords.has(baseWord) || knownWords.has(lowerWord) || (!!resolvedWord && knownWords.has(resolvedWord))
     const isHardEnough = checkDifficulty(explanation, userLevel)
-    
-    if (isSavedWord || isHardEnough) {
+
+    if (isSavedWord || (isHardEnough && !isKnown)) {
       results.push({
         word,
         index: match.index,
@@ -82,8 +94,9 @@ const checkDifficulty = (entry: WordExplanation, userLevel: ProficiencyLevel): b
   if (levels.length === 0) return true
   
   const wordRanks = levels.map(l => TAG_LEVEL_MAP[l.toLowerCase() as DictTag] || 3)
-  const maxDifficulty = Math.max(...wordRanks)
+  // Gate by the easiest sense: a word with a common easy meaning is treated as known.
+  const minDifficulty = Math.min(...wordRanks)
   const userRank = USER_LEVEL_RANK[userLevel]
-  
-  return maxDifficulty >= userRank
+
+  return minDifficulty >= userRank
 }

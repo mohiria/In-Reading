@@ -90,6 +90,18 @@ export const speak = (text: string, lang: string = 'en-US') => {
   setTimeout(() => {
     if (utterance.voice) {
       synth.speak(utterance);
+
+      // Keep-alive: Chrome cuts local-voice playback at ~15s; resume() while speaking
+      // keeps long utterances going to the end.
+      if (text.length > 100) {
+        const keepAlive = setInterval(() => {
+          if (!synth.speaking) {
+            clearInterval(keepAlive);
+          } else {
+            synth.resume();
+          }
+        }, 5000);
+      }
     } else {
       // 4. LAST RESORT: Fallback to Online API
       playOnlineTTS(text, lang);

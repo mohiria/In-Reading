@@ -5,7 +5,9 @@ import { WordExplanation } from '../../common/types'
 // Mock inflections
 vi.mock('../../common/nlp/inflections.json', () => ({
   default: {
-    'tears': 'tear'
+    'tears': 'tear',
+    'being': 'be',
+    'said': 'say'
   }
 }))
 
@@ -47,5 +49,95 @@ describe('Analyzer Logic - Heteronym IPA Hiding', () => {
     expect(match).toBeDefined()
     expect(match?.explanation.hideIPA).toBeFalsy()
     expect(match?.explanation.ipa).toBeDefined()
+  })
+})
+
+describe('Analyzer Logic - saved base word highlights inflections', () => {
+  it('S1: saving base word "victim" annotates the inflected "victims"', () => {
+    // dict keyed by surface form (as batchLookupWords would produce), entry word is the base.
+    const dict = { victims: { word: 'victim', meaning: '受害者', cefr: ['a2'] } } as any
+    // High user level so victim(a2) is NOT hard enough — only a saved-match can include it.
+    const results = analyzeText('the victims fled', 'CEFR_C1', new Set(['victim']), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'victims')).toBeDefined()
+  })
+})
+
+describe('Analyzer Logic - known-words whitelist suppresses annotation', () => {
+  const dict = { obscure: { word: 'obscure', meaning: '晦涩的', cefr: ['c1'] } } as any
+
+  it('K1: a hard word in knownWords is not annotated', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(), dict, 'US', {}, new Set(['obscure']))
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeUndefined()
+  })
+
+  it('K2: a saved word is still annotated even if also marked known (saved wins)', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(['obscure']), dict, 'US', {}, new Set(['obscure']))
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeDefined()
+  })
+
+  it('K3: a hard word NOT in knownWords is still annotated (no regression)', () => {
+    const results = analyzeText('an obscure reference', 'CEFR_A1', new Set(), dict, 'US', {}, new Set())
+    expect(results.find(r => r.word.toLowerCase() === 'obscure')).toBeDefined()
+  })
+})
+
+describe('Analyzer Logic - hyphenated compound as a single unit', () => {
+  it('A1: a resolved compound is one match spanning the whole word', () => {
+    const dict = { 'anti-migrant': { word: 'anti-migrant', meaning: '反移民的', cefr: [] } } as any
+    const results = analyzeText('strong anti-migrant rhetoric', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('anti-migrant')
+    expect(results[0].length).toBe('anti-migrant'.length) // 12, includes the hyphen
+  })
+
+  it('A2: an unresolved compound is not split into annotated parts', () => {
+    // Only the part "migrant" is in the dict, not the whole compound.
+    const dict = { migrant: { word: 'migrant', meaning: '移民', cefr: [] } } as any
+    const results = analyzeText('strong anti-migrant rhetoric', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'migrant')).toBeUndefined()
+    expect(results.length).toBe(0)
+  })
+
+  it('A3: a standalone plain word still matches (no regression)', () => {
+    const dict = { migrant: { word: 'migrant', meaning: '移民', cefr: [] } } as any
+    const results = analyzeText('a migrant worker', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.find(r => r.word.toLowerCase() === 'migrant')).toBeDefined()
+  })
+})
+
+describe('Analyzer Logic - Accented (Latin) words', () => {
+  it('AC1: an accented word is one token — its ASCII fragment is not matched', () => {
+    // Bug: "Stéphane" split on é → only "phane" was matched/highlighted.
+    const dict = { phane: { word: 'phane', meaning: 'x', cefr: ['c1'] } } as any
+    const results = analyzeText('Stéphane', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(0)
+  })
+
+  it('AC2: an accented word is tokenized and located as a whole', () => {
+    const dict = { 'café': { word: 'café', meaning: '咖啡馆', cefr: ['c1'] } } as any
+    const results = analyzeText('a café here', 'CEFR_A1', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('café')
+    expect(results[0].index).toBe(2)
+    expect(results[0].length).toBe(4)
+  })
+})
+
+describe('Analyzer Logic - Lemmatization suppresses easy inflections', () => {
+  it('L1: "being" resolves to base "be" (a1) and is NOT annotated at CET4', () => {
+    // dict carries both the easy base and the b2 homograph; the base (lemma) must win.
+    const dict = {
+      be: { word: 'be', meaning: '是', cefr: ['a1'] },
+      being: { word: 'being', meaning: '存在', cefr: ['b2'] }
+    } as any
+    const results = analyzeText('the being of it', 'CET4', new Set(), dict, 'US', {})
+    expect(results.length).toBe(0)
+  })
+
+  it('L2: a genuine b2 word (not an easy inflection) is still annotated at CET4', () => {
+    const dict = { abandon: { word: 'abandon', meaning: '抛弃', cefr: ['b2'] } } as any
+    const results = analyzeText('they abandon it', 'CET4', new Set(), dict, 'US', {})
+    expect(results.length).toBe(1)
+    expect(results[0].word).toBe('abandon')
   })
 })

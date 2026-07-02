@@ -1,8 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { scanAndHighlight, clearHighlights, unhighlightWord } from './engine/scanner'
+import { scanAndHighlight, clearHighlights, unhighlightWord, annotateWord, reannotateWord } from './engine/scanner'
 import { getSettings } from '../common/storage/settings'
 import { getVocabulary } from '../common/storage/vocabulary'
+import { getKnownWords } from '../common/storage/knownWords'
 import { initDictionaryService } from '../common/storage/dictionary-service'
 import { batchLookupWords } from '../common/storage/indexed-db'
 import { Overlay } from './components/Overlay'
@@ -25,7 +26,16 @@ root.render(<><Overlay /><SelectionPopup /></>)
 let tabEnabled = false
 let isScanning = false
 
+// True only while this content script's extension context is still valid. After the
+// extension reloads/updates, chrome.* calls from the OLD context throw
+// "Extension context invalidated." — guard the page-persistent hooks (MutationObserver,
+// history hooks, timers) so they no-op instead of throwing uncaught.
+const extensionAlive = (): boolean => {
+  try { return !!chrome.runtime?.id } catch { return false }
+}
+
 const runScan = async (forceClear = false) => {
+  if (!extensionAlive()) return
   if (isScanning || !tabEnabled) {
     if (!tabEnabled) clearHighlights()
     return
@@ -33,13 +43,23 @@ const runScan = async (forceClear = false) => {
   isScanning = true
 
   try {
-    const [settings, vocabList] = await Promise.all([getSettings(), getVocabulary()])
+    const [settings, vocabList, knownList] = await Promise.all([getSettings(), getVocabulary(), getKnownWords()])
     const vocabSet = new Set(vocabList.map(v => v.word.toLowerCase()))
     const vocabMap = Object.fromEntries(vocabList.map(v => [v.word.toLowerCase(), v]))
+    const knownSet = new Set(knownList.map(w => w.toLowerCase()))
+
+    // Opt-in online backfill: only when AI is configured and the device is online.
+    const shouldBackfill = settings.engine === 'llm' && !!settings.llm?.apiKey && navigator.onLine
+    const backfillFn = shouldBackfill
+      ? async (items: { word: string; sentence: string }[]) => {
+          const res = await chrome.runtime.sendMessage({ type: 'BACKFILL_WORDS', items, settings }).catch(() => null)
+          return res && res.success && res.data ? res.data : {}
+        }
+      : undefined
 
     await scanAndHighlight(
-      document.body, settings.proficiency, vocabSet, vocabMap, 
-      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA
+      document.body, settings.proficiency, vocabSet, vocabMap,
+      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn, knownSet
     )
   } finally {
     isScanning = false
@@ -66,6 +86,8 @@ const setupObserver = () => {
     if (timeout) clearTimeout(timeout)
     // Reduced debounce time from 1000ms to 500ms for better responsiveness
     timeout = setTimeout(() => {
+      // Old context after an extension reload: stop observing instead of throwing.
+      if (!extensionAlive()) { observer.disconnect(); return }
       if (tabEnabled) runScan(false)
     }, 500)
   })
@@ -143,22 +165,37 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     
     // Surgical update: only handle words that were added or removed
     if (newVocab.length > oldVocab.length) {
-      // Added words
+      // Added words — annotate ONLY the new word(s). A full non-clearing rescan
+      // would re-annotate other difficult words' gap-skipped occurrences with a
+      // fresh spacing state, densifying them into adjacent blocks (breaks the gap).
       const added = newVocab.filter(nv => !oldVocab.some(ov => ov.word === nv.word))
-      for (const item of added) {
-        const [settings] = await Promise.all([getSettings()])
-        const vocabSet = new Set(newVocab.map(v => v.word.toLowerCase()))
-        const vocabMap = Object.fromEntries(newVocab.map(v => [v.word.toLowerCase(), v]))
-        // Scan specifically for the new word
-        await scanAndHighlight(
-          document.body, settings.proficiency, vocabSet, vocabMap, 
-          settings.pronunciation, batchLookupWords, false, settings.showIPA
-        )
+      if (added.length > 0) {
+        const settings = await getSettings()
+        for (const item of added) {
+          annotateWord(document.body, item.word, item, settings.proficiency, settings.pronunciation, settings.showIPA)
+        }
       }
     } else if (newVocab.length < oldVocab.length) {
       // Removed words
       const removed = oldVocab.filter(ov => !newVocab.some(nv => nv.word === ov.word))
       removed.forEach(item => unhighlightWord(item.word, document.body))
+    }
+  } else if (area === 'local' && changes.knownWords && tabEnabled) {
+    // Known-words is the inverse of vocabulary: a newly-known word should lose its
+    // annotation immediately; an un-marked word should become annotatable again.
+    const oldKnown = (changes.knownWords.oldValue || []) as string[]
+    const newKnown = (changes.knownWords.newValue || []) as string[]
+    const added = newKnown.filter(w => !oldKnown.includes(w))
+    const removed = oldKnown.filter(w => !newKnown.includes(w))
+    // Newly-known word → drop its annotation immediately.
+    added.forEach(w => unhighlightWord(w, document.body))
+    // Un-marked word → re-annotate ONLY that word in place (difficulty-gated), instead
+    // of a full clear+rescan which flickers the whole page.
+    if (removed.length > 0) {
+      const settings = await getSettings()
+      for (const w of removed) {
+        await reannotateWord(document.body, w, settings.proficiency, settings.pronunciation, settings.showIPA, batchLookupWords)
+      }
     }
   }
 })

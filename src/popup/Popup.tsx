@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { ProficiencyLevel, SavedWord, LLMProvider, LLMSettings } from '../common/types'
 import { useSettings } from '../common/hooks/useSettings'
 import { useVocabulary } from '../common/hooks/useVocabulary'
-import { LLM_MODELS, LLM_DEFAULT_URLS } from '../common/config'
+import { LLM_DEFAULT_MODELS, LLM_DEFAULT_URLS } from '../common/config'
 import { Trash2, Settings, BookOpen, Cpu, Globe, Keyboard } from 'lucide-react'
 import { formatIPA } from '../common/utils/format'
+import { hasHostPermission, requestHostPermission } from '../common/utils/permissions'
 
 export const Popup = () => {
   const { settings, updateSettings } = useSettings()
@@ -12,6 +13,15 @@ export const Popup = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'llm' | 'vocab'>('general')
   const [tabEnabled, setTabEnabled] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
+  const [vocabQuery, setVocabQuery] = useState('')
+  const [customPerm, setCustomPerm] = useState(false)
+
+  const isCustomProvider = settings?.llm.provider === 'custom'
+  const customBaseUrl = (settings?.llm.baseUrl || '').trim()
+  useEffect(() => {
+    if (isCustomProvider && customBaseUrl) hasHostPermission(customBaseUrl).then(setCustomPerm)
+    else setCustomPerm(false)
+  }, [isCustomProvider, customBaseUrl])
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -155,7 +165,6 @@ export const Popup = () => {
   const LLMTab = () => {
     const provider = settings.llm.provider
     const isCustom = provider === 'custom'
-    const models = !isCustom ? LLM_MODELS[provider as keyof typeof LLM_MODELS] : []
 
     const inputStyle: React.CSSProperties = {
       width: '100%',
@@ -165,6 +174,15 @@ export const Popup = () => {
       boxSizing: 'border-box'
     }
 
+    // Required-state (visual only — settings auto-save, nothing is blocked).
+    const modelMissing = !(settings.llm.model || '').trim()
+    const keyMissing = !(settings.llm.apiKey || '').trim()
+    const baseUrlMissing = isCustom && !(settings.llm.baseUrl || '').trim()
+    const errStyle = (missing: boolean): React.CSSProperties =>
+      missing ? { ...inputStyle, border: '1px solid #ff4d4f' } : inputStyle
+    const req = <span style={{ color: 'red' }}>*</span>
+    const inlineReq = <span style={{ color: '#ff4d4f', fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '5px' }}>· 此项为必填</span>
+
     return (
       <div style={{ animation: 'fadeIn 0.2s' }}>
         <div style={{ marginBottom: '0.8rem' }}>
@@ -173,16 +191,14 @@ export const Popup = () => {
             value={provider} 
             onChange={(e) => {
               const p = e.target.value as LLMProvider
-              handleLLMUpdate({ 
-                provider: p, 
-                model: p !== 'custom' ? LLM_MODELS[p as keyof typeof LLM_MODELS][0] : '' 
-              })
+              // Pre-fill the provider's default model (custom has none → empty).
+              handleLLMUpdate({ provider: p, model: p === 'custom' ? '' : LLM_DEFAULT_MODELS[p] })
             }}
             style={inputStyle}
           >
-            <option value="gemini">Google Gemini</option>
+            <option value="gemini">Google (Gemini)</option>
             <option value="openai">OpenAI (GPT)</option>
-            <option value="claude">Anthropic Claude</option>
+            <option value="claude">Anthropic (Claude)</option>
             <option value="deepseek">Deepseek</option>
             <option value="moonshot">月之暗面 (Kimi)</option>
             <option value="zhipu">智谱 AI (GLM)</option>
@@ -192,46 +208,50 @@ export const Popup = () => {
         </div>
 
         <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Model</label>
-          {isCustom ? (
-            <input 
-              type="text"
-              value={settings.llm.model || ''} 
-              onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-              placeholder="e.g. gpt-4-turbo"
-              style={inputStyle}
-            />
-          ) : (
-            <select 
-              value={settings.llm.model} 
-              onChange={(e) => handleLLMUpdate({ model: e.target.value })}
-              style={inputStyle}
-            >
-              {models.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          )}
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Model {req}{modelMissing && inlineReq}</label>
+          <input
+            type="text"
+            value={settings.llm.model || ''}
+            onChange={(e) => handleLLMUpdate({ model: e.target.value })}
+            placeholder={LLM_DEFAULT_MODELS[provider]}
+            style={errStyle(modelMissing)}
+          />
         </div>
 
         <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>API Key <span style={{color:'red'}}>*</span></label>
-          <input 
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>API Key {req}{keyMissing && inlineReq}</label>
+          <input
             type="password"
-            value={settings.llm.apiKey} 
+            value={settings.llm.apiKey}
             onChange={(e) => handleLLMUpdate({ apiKey: e.target.value })}
             placeholder="sk-..."
-            style={inputStyle}
+            style={errStyle(keyMissing)}
           />
         </div>
 
         <div style={{ marginBottom: '0.8rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Base URL (Optional)</label>
-          <input 
+          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+            Base URL {isCustom ? <>{req}{baseUrlMissing && inlineReq}</> : <span style={{ color: '#999' }}>（选填）</span>}
+          </label>
+          <input
             type="text"
-            value={settings.llm.baseUrl || ''} 
+            value={settings.llm.baseUrl || ''}
             onChange={(e) => handleLLMUpdate({ baseUrl: e.target.value })}
             placeholder={LLM_DEFAULT_URLS[provider]}
-            style={inputStyle}
+            style={errStyle(baseUrlMissing)}
           />
+          {isCustom && customBaseUrl && (
+            customPerm ? (
+              <div style={{ fontSize: '0.7rem', color: '#319795', marginTop: '0.3rem' }}>✓ 已授权访问该地址</div>
+            ) : (
+              <button
+                onClick={async () => setCustomPerm(await requestHostPermission(customBaseUrl))}
+                style={{ marginTop: '0.3rem', padding: '4px 10px', borderRadius: '4px', border: '1px solid #4b8bf5', background: 'white', color: '#4b8bf5', cursor: 'pointer', fontSize: '0.75rem' }}
+              >
+                授权访问该地址
+              </button>
+            )
+          )}
         </div>
       </div>
     )
@@ -239,12 +259,38 @@ export const Popup = () => {
 
   const VocabTab = () => (
     <div style={{ animation: 'fadeIn 0.2s' }}>
-      <h3 style={{ fontSize: '0.95rem', marginBottom: '0.8rem' }}>Saved Words ({vocabulary.length})</h3>
-      {vocabulary.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
-      ) : (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+        <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Saved Words ({vocabulary.length})</h3>
+        <button
+          onClick={() => chrome.runtime.openOptionsPage()}
+          style={{ background: 'none', border: 'none', color: '#4b8bf5', cursor: 'pointer', fontSize: '0.8rem' }}
+        >
+          查看全部 / 导出
+        </button>
+      </div>
+      {vocabulary.length > 0 && (
+        <input
+          type="text"
+          value={vocabQuery}
+          onChange={(e) => setVocabQuery(e.target.value)}
+          placeholder="搜索单词或释义…"
+          style={{ width: '100%', padding: '6px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ddd', marginBottom: '0.8rem', fontSize: '0.8rem' }}
+        />
+      )}
+      {(() => {
+        const q = vocabQuery.trim().toLowerCase()
+        const filtered = q
+          ? vocabulary.filter(v => v.word.toLowerCase().includes(q) || (v.meaning || '').toLowerCase().includes(q))
+          : vocabulary
+        if (vocabulary.length === 0) {
+          return <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '2rem 0' }}>No words saved.</p>
+        }
+        if (filtered.length === 0) {
+          return <p style={{ fontSize: '0.85rem', color: '#999', textAlign: 'center', margin: '1.5rem 0' }}>没有匹配的生词。</p>
+        }
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {vocabulary.slice(0, 20).map((item) => (
+          {filtered.map((item) => (
             <div key={item.word} style={{ 
               fontSize: '0.85rem', padding: '8px', backgroundColor: '#f9f9f9', 
               borderRadius: '4px', display: 'flex', justifyContent: 'space-between', border: '1px solid #eee'
@@ -259,7 +305,8 @@ export const Popup = () => {
             </div>
           ))}
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 

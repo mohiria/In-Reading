@@ -1,4 +1,9 @@
-import { UserSettings } from '../types'
+import { UserSettings, LLMProvider } from '../types'
+import { LLM_DEFAULT_MODELS } from '../config'
+
+// The recommended model becomes the default value for a provider (custom has none).
+const defaultModelFor = (p: LLMProvider): string => p === 'custom' ? '' : LLM_DEFAULT_MODELS[p]
+
 const DEFAULT_SETTINGS: UserSettings = {
   enabled: false,
   proficiency: 'CET4',
@@ -9,13 +14,16 @@ const DEFAULT_SETTINGS: UserSettings = {
     provider: 'gemini',
     apiKey: '',
     baseUrl: '',
-    model: '',
+    model: defaultModelFor('gemini'),
     providerConfigs: {}
   }
 }
 
 
 export const getSettings = async (): Promise<UserSettings> => {
+  // Settings live in storage.sync so they follow the user's Google account across
+  // devices (includes the LLM API key — the user opted into syncing it for
+  // multi-device convenience). Fall back to a legacy local copy and re-sync it.
   let data = await chrome.storage.sync.get('settings')
   if (!data.settings) {
     const localData = await chrome.storage.local.get('settings')
@@ -58,10 +66,10 @@ export const saveSettings = async (settings: UserSettings): Promise<void> => {
       baseUrl: current.llm.baseUrl || ''
     }
 
-    // 2. Load the next provider's values from backup (if any)
+    // 2. Load the next provider's values from backup (if any); first time in → default model
     const nextConfig = configs[nextProvider] || { apiKey: '', model: '', baseUrl: '' }
     settings.llm.apiKey = nextConfig.apiKey
-    settings.llm.model = nextConfig.model
+    settings.llm.model = nextConfig.model || defaultModelFor(nextProvider)
     settings.llm.baseUrl = nextConfig.baseUrl
   } else {
     // SCENARIO B: Same Provider (e.g. user just updated API Key or switched Model)

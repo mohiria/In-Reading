@@ -1,13 +1,16 @@
 import { LLMProvider } from './types'
 
-export const LLM_MODELS: Record<Exclude<LLMProvider, 'custom'>, string[]> = {
-  gemini: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  openai: ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini', 'gpt-4o-mini'],
-  claude: ['Claude-Sonnet-4.6', 'Claude-Haiku-4.5', 'Claude-3.5-Haiku', 'Claude-3-Haiku'],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  moonshot: ['kimi-k2.5'],
-  zhipu: ['glm-5', 'glm-4.7-flash', 'glm-4.6-flash'],
-  qwen: ['qwen3.5-plus', 'qwen3.5-flash', 'qwen3-vl-32b-instruct']
+// Recommended model per provider, shown as a gray placeholder hint in the Model
+// field (display only — NOT written to settings or used as a fallback default).
+export const LLM_DEFAULT_MODELS: Record<LLMProvider, string> = {
+  gemini: 'gemini-3.5-flash',
+  openai: 'gpt-5.4-mini',
+  claude: 'claude-haiku-4-5',
+  deepseek: 'deepseek-v4-flash',
+  moonshot: 'kimi-k2.6',
+  zhipu: 'glm-4.7-flash',
+  qwen: 'qwen3.6-flash',
+  custom: 'e.g. gpt-4-turbo'
 }
 
 export const LLM_DEFAULT_URLS: Record<LLMProvider, string> = {

@@ -1,7 +1,16 @@
-import { fetchFromLLM } from './llm'
+import { fetchFromLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
 import { UserSettings } from '../common/types'
 import { getSettings } from '../common/storage/settings'
+import { resetDictionaryCache } from '../common/storage/indexed-db'
+import { startupReconcile, handleSyncChange } from '../common/storage/syncReconcile'
 import * as TranslationService from './services/translation'
+
+// Cross-device sync of vocabulary / known-words: reconcile once at worker start,
+// and apply per-word sync deltas into chrome.storage.local (the shared read source).
+startupReconcile().catch(err => console.error('Sync startup reconcile failed', err))
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync') handleSyncChange(changes).catch(() => {})
+})
 
 /**
  * State Management (Persist across refreshes using session storage)
@@ -81,8 +90,35 @@ async function handleTranslationRequest(text: string, contextSentence: string, s
 }
 
 /**
+ * Inline AI backfill: explain a batch of locally-uncovered words in one request.
+ * Returns an empty map on any failure (offline, bad key, parse error) so the
+ * content script degrades silently to local-only annotation.
+ */
+async function handleBackfillRequest(
+  items: BatchItem[],
+  settings?: UserSettings
+): Promise<Record<string, BatchGloss>> {
+  if (!settings || settings.engine !== 'llm' || !settings.llm.apiKey) return {}
+  if (!Array.isArray(items) || items.length === 0) return {}
+  try {
+    return await fetchBatchFromLLM(items, settings)
+  } catch (e) {
+    console.error('Backfill request failed', e)
+    return {}
+  }
+}
+
+/**
  * Event Listeners
  */
+// On install/update (including reloading the unpacked extension), reset the
+// dictionary version so the next page scan re-imports the latest bundled
+// dictionary — even when the bundled version number is unchanged. Saved
+// vocabulary (user_words / chrome.storage) is left untouched.
+chrome.runtime.onInstalled.addListener(() => {
+  resetDictionaryCache().catch(err => console.error('Dictionary cache reset on install failed', err))
+})
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-translation') {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -107,6 +143,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleTranslationRequest(request.text, request.context, request.settings)
         .then(data => sendResponse({ success: true, data }))
         .catch(err => sendResponse({ success: false, error: err.message }))
+      return true
+    case 'BACKFILL_WORDS':
+      handleBackfillRequest(request.items, request.settings)
+        .then(data => sendResponse({ success: true, data }))
+        .catch(() => sendResponse({ success: true, data: {} }))
       return true
   }
   return true

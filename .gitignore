@@ -41,3 +41,8 @@ yarn-error.log*
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+# codex 产物（词形/等级审阅的原始产物，仅作本地审计，不纳入版本库）
+scripts/data/
+
+# store upload artifact
+*.zip

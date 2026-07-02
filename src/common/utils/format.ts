@@ -19,14 +19,15 @@ export const formatIPA = (ipa: string | undefined): string => {
  * Selects the preferred IPA based on user preference (UK/US)
  */
 export const getPreferredIPA = (explanation: WordExplanation, pronunciation: 'UK' | 'US'): string => {
-  const { ipa_uk, ipa_us, ipa } = explanation
-  
+  // Oxford shape stores ipa_uk/ipa_us/ipa; confusion-map shape stores phon_br (UK) / phon_n_am (US).
+  const { ipa_uk, ipa_us, ipa, phon_br, phon_n_am } = explanation
+
   let selected = ''
   if (pronunciation === 'UK') {
-    selected = ipa_uk || ipa_us || ipa || ''
+    selected = ipa_uk || phon_br || ipa_us || phon_n_am || ipa || ''
   } else {
-    selected = ipa_us || ipa_uk || ipa || ''
+    selected = ipa_us || phon_n_am || ipa_uk || phon_br || ipa || ''
   }
-  
+
   return formatIPA(selected)
 }
