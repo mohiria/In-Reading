@@ -65,3 +65,20 @@ describe('OpenAI-compatible request shape (problem 2)', () => {
     expect(body.model).toBe('glm-4-flash')
   })
 })
+
+describe('source badge names the provider (not the generic "AI")', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const cases: Array<[string, string]> = [
+    ['moonshot', 'Kimi'],
+    ['zhipu', 'GLM'],
+    ['qwen', 'Qwen']
+  ]
+  for (const [provider, label] of cases) {
+    it(`L-badge: ${provider} → AI (${label})`, async () => {
+      stubFetch(okChat(FULL))
+      const r: any = await translateTextLLM(SENTENCE, settings(provider))
+      expect(r.source).toBe(`AI (${label})`)
+    })
+  }
+})

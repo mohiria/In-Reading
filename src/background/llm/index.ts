@@ -197,8 +197,11 @@ const sourceLabel = (settings: UserSettings): string => {
   const { provider, baseUrl } = settings.llm
   if (provider === 'gemini') return 'Gemini'
   if (provider === 'openai') return 'GPT'
-  if (provider === 'deepseek') return 'Deepseek'
-  if (provider === 'custom') return 'Custom AI'
+  if (provider === 'deepseek') return 'DeepSeek'
+  if (provider === 'moonshot') return 'Kimi'
+  if (provider === 'zhipu') return 'GLM'
+  if (provider === 'qwen') return 'Qwen'
+  if (provider === 'custom') return 'Custom'
   if (provider === 'claude') return baseUrl ? 'Claude (Proxy)' : 'Claude'
   return 'AI'
 }
