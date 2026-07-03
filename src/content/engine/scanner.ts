@@ -1,7 +1,7 @@
 import { analyzeText } from '../../common/nlp/analyzer'
 import { ProficiencyLevel, WordExplanation } from '../../common/types'
 import { speak } from '../../common/utils/speech'
-import { extractCandidates, selectUnknownHard } from './backfill'
+import { extractCandidates, selectUnknownHard, isAiSource } from './backfill'
 import { getLemmaKeys, getAiCache, putAiCache, AiCacheEntry } from '../../common/storage/indexed-db'
 import defaultConfusionMap from '../../../public/dictionaries/confusion-map.json'
 import commonWordsList from '../../common/nlp/common-words.json'
@@ -276,9 +276,11 @@ const runBackfill = async (
     console.log(`In Reading: backfill capped at ${MAX_BACKFILL}, dropped ${unknownHard.length - MAX_BACKFILL} word(s)`)
   }
 
-  // Serve from cache first; only miss words hit the network.
+  // Serve from cache first; only miss words hit the network. A cached entry with a
+  // non-AI source (e.g. a Youdao gloss left by the selection popup) is NOT reused —
+  // it is treated as a miss and re-fetched via AI, so inline annotations are AI-or-nothing.
   const cached = await getAiCache(targets).catch(() => ({} as Record<string, AiCacheEntry>))
-  const misses = targets.filter(w => !cached[w])
+  const misses = targets.filter(w => !cached[w] || !isAiSource(cached[w].source))
 
   const fetched: Record<string, BackfillGloss> = {}
   if (misses.length > 0) {
@@ -301,7 +303,8 @@ const runBackfill = async (
   const addGloss = (word: string, g: BackfillGloss, source: string) => {
     backfillDict[word] = { word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source } as WordExplanation
   }
-  for (const [w, g] of Object.entries(cached)) addGloss(w, g, g.source || aiSource)
+  // Only reuse AI-sourced cache hits; non-AI entries were routed into misses/fetched above.
+  for (const [w, g] of Object.entries(cached)) if (isAiSource(g.source)) addGloss(w, g, g.source || aiSource)
   for (const [w, g] of Object.entries(fetched)) addGloss(w, g, aiSource)
   if (Object.keys(backfillDict).length === 0) return
 

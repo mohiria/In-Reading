@@ -8,6 +8,7 @@ import { BookOpen, Plus, Minus, Check, X } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
 import { llmProviderLabel } from '../../common/config'
+import { isAiSource } from '../engine/backfill'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
 
 export const SelectionPopup = () => {
@@ -78,8 +79,11 @@ export const SelectionPopup = () => {
       let localExp: WordExplanation | null = confusionEntry || await lookupWordInDB(text)
       if (!localExp) {
         // Reuse a gloss already AI-backfilled on the page (instant, no network).
-        const aiHit = (await getAiCache([lowerText]))[lowerText]
-        if (aiHit) localExp = aiHit as WordExplanation
+        // Under AI, a non-AI cached gloss (legacy Youdao pollution / standard-mode
+        // leftover) is ignored so the selection re-queries AI instead of serving it.
+        const aiHit = (await getAiCache([lowerText]))[lowerText] as WordExplanation | undefined
+        const staleNonAi = settings?.engine === 'llm' && aiHit && !isAiSource(aiHit.source)
+        if (aiHit && !staleNonAi) localExp = aiHit
       }
       if (gen !== genRef.current) return // superseded during the async local lookup
 
@@ -107,7 +111,9 @@ export const SelectionPopup = () => {
         if (res?.success) {
           setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
           // Cache single-word results so a repeat selection resolves instantly.
-          if (res.data?.meaning && !/\s/.test(text)) {
+          // AI-only cache: a non-AI fallback (Youdao/iCIBA/Google) is shown but not
+          // cached, so a later selection re-attempts AI instead of reusing it.
+          if (res.data?.meaning && !/\s/.test(text) && isAiSource(res.data.source)) {
             putAiCache([{
               word: lowerText,
               meaning: res.data.meaning,

@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { extractCandidates, selectUnknownHard } from '../../content/engine/backfill'
+import { extractCandidates, selectUnknownHard, isAiSource } from '../../content/engine/backfill'
+
+describe('isAiSource', () => {
+  it('U1: true only for AI-produced sources', () => {
+    expect(isAiSource('AI')).toBe(true)
+    expect(isAiSource('AI (Kimi)')).toBe(true)
+    expect(isAiSource('AI (Gemini)')).toBe(true)
+    expect(isAiSource('Youdao')).toBe(false)
+    expect(isAiSource('iCIBA')).toBe(false)
+    expect(isAiSource('Google')).toBe(false)
+    expect(isAiSource('Oxford 5000')).toBe(false)
+    expect(isAiSource('')).toBe(false)
+    expect(isAiSource(undefined)).toBe(false)
+  })
+})
 
 describe('extractCandidates', () => {
   it('B1: treats a hyphenated compound as one candidate', () => {

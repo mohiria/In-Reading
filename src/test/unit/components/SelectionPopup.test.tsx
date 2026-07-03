@@ -250,6 +250,53 @@ describe('SelectionPopup Standardization', () => {
     expect(screen.queryByText('AI (Gemini)')).toBeNull()
   })
 
+  it('S2: a non-AI cached entry is re-queried via AI (not served from cache)', async () => {
+    // Legacy pollution: word cached with a Youdao source.
+    ;(getAiCache as any).mockResolvedValue({
+      pollutedword: { word: 'pollutedword', meaning: '旧有道义', source: 'Youdao' }
+    })
+    const sent: string[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') { sent.push(msg.text); cb({ success: true, data: { word: 'pollutedword', meaning: 'AI译文', source: 'AI (Gemini)' } }) }
+    })
+    mockSel('pollutedword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(sent).toContain('pollutedword')                 // AI re-queried, not served from Youdao cache
+    expect(screen.queryByText('AI译文')).toBeTruthy()
+    expect(screen.queryByText('AI (Gemini)')).toBeTruthy()
+    expect(screen.queryByText('旧有道义')).toBeNull()
+  })
+
+  it('S3a: a Youdao fallback result is shown but NOT written to ai_cache', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') cb({ success: true, data: { word: 'freshword', meaning: '有道义', source: 'Youdao' } })
+    })
+    mockSel('freshword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(screen.queryByText('有道义')).toBeTruthy()       // shown this time
+    expect(putAiCache).not.toHaveBeenCalled()               // but not cached (AI-only cache)
+  })
+
+  it('S3b: an AI result IS written to ai_cache', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') cb({ success: true, data: { word: 'aiword', meaning: 'AI义', source: 'AI (Gemini)' } })
+    })
+    mockSel('aiword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(putAiCache).toHaveBeenCalledWith([expect.objectContaining({ word: 'aiword', source: 'AI (Gemini)' })])
+  })
+
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {
     // Local miss → goes to network; the returned gloss must be cached.
     ;(getAiCache as any).mockResolvedValue({})

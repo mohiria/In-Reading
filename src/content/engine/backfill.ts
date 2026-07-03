@@ -1,5 +1,10 @@
 // Inline AI backfill helpers (pure logic; orchestration lives in scanner.ts).
 
+// True when a gloss/translation source is AI-produced (e.g. "AI", "AI (Kimi)",
+// "AI (Gemini)"). The ai_cache is AI-only: non-AI sources (Youdao/iCIBA/Google/
+// Oxford 5000) must not be cached, trusted, or reused for backfill under AI.
+export const isAiSource = (source?: string): boolean => /^AI\b/.test(source || '')
+
 // Candidate tokenizer: hyphenated Latin compounds (life-threatening) OR plain 3+
 // letter words. Latin-letter aware (incl. accents) so "Stéphane"/"café" stay whole.
 // Compound alternative is listed first so it is matched as a single token, not split.
