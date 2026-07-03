@@ -44,4 +44,23 @@ describe('selectUnknownHard', () => {
     expect(out).not.toContain('via')
     expect(out).toContain('ubiquitous')
   })
+
+  it('G1: excludes common/high-frequency words on the common-words list (e.g. "these")', () => {
+    const out = selectUnknownHard(['these', 'ubiquitous'], {
+      isResolved: () => false,                 // neither is in the local dict
+      everLower: new Set(['these', 'ubiquitous']),
+      commonWords: new Set(['these'])          // "these" is a trivial structural word
+    })
+    expect(out).not.toContain('these')         // gated out — not backfilled
+    expect(out).toContain('ubiquitous')        // genuinely advanced — still backfilled
+  })
+
+  it('G2: an empty/absent common-words set does not exclude advanced words', () => {
+    const out = selectUnknownHard(['ubiquitous'], {
+      isResolved: () => false,
+      everLower: new Set(['ubiquitous']),
+      commonWords: new Set<string>()
+    })
+    expect(out).toContain('ubiquitous')
+  })
 })

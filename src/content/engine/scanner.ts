@@ -4,6 +4,7 @@ import { speak } from '../../common/utils/speech'
 import { extractCandidates, selectUnknownHard } from './backfill'
 import { getLemmaKeys, getAiCache, putAiCache, AiCacheEntry } from '../../common/storage/indexed-db'
 import defaultConfusionMap from '../../../public/dictionaries/confusion-map.json'
+import commonWordsList from '../../common/nlp/common-words.json'
 
 // Shape returned by the injected backfill fn / AI cache (subset of an LLM gloss).
 export interface BackfillGloss { meaning: string; ipa_us?: string; ipa_uk?: string }
@@ -13,6 +14,9 @@ const MAX_BACKFILL = 80 // hard cap on uncovered words backfilled per scan
 const BACKFILL_BATCH = 40 // words per LLM request (mirrors fetchBatchFromLLM)
 const BACKFILL_CONCURRENCY = 2 // simultaneous requests per scan
 const confusionMap = defaultConfusionMap as Record<string, any>
+// High-frequency/function words that must never be backfilled (they are trivially
+// easy and often absent from the content dictionary, e.g. "these"/"those").
+const COMMON_WORDS = new Set<string>((commonWordsList as string[]).map(w => w.toLowerCase()))
 
 /**
  * Constants & Configuration
@@ -264,7 +268,7 @@ const runBackfill = async (
   const isResolved = (w: string) => !!combinedDict[w] || getLemmaKeys(w).some(k => !!confusionMap[k])
   // Don't backfill words the user already marked as known.
   const pool = Array.from(candidates).filter(w => !knownWords.has(w))
-  const unknownHard = selectUnknownHard(pool, { isResolved, everLower })
+  const unknownHard = selectUnknownHard(pool, { isResolved, everLower, commonWords: COMMON_WORDS })
   if (unknownHard.length === 0) return
 
   const targets = unknownHard.slice(0, MAX_BACKFILL)
