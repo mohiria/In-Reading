@@ -1,8 +1,5 @@
-# selection-translation Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change compound-cache-selection-fixes. Update Purpose after archive.
-## Requirements
 ### Requirement: Selection translation reuses local AI cache
 
 When a user selects a word for translation, the popup SHALL consult the local AI backfill cache (`ai_cache`) — in addition to the confusion map and core dictionary — before making any network request. A local hit with an AI-sourced gloss SHALL be shown immediately with no loading state and no network call. However, when an LLM engine is configured (`engine === 'llm'`) and the cached gloss's source is NOT AI-sourced (e.g. a legacy `Youdao` entry or one left by standard mode), the hit SHALL be treated as a miss so the selection re-queries AI rather than serving a stale non-AI gloss.
@@ -35,23 +32,3 @@ A successful network translation of a single selected word SHALL be written to t
 
 - **WHEN** a single-word selection falls back to Youdao/iCIBA/Google (AI failed or is not configured) and returns a translation
 - **THEN** the result is shown but not written to `ai_cache` (a later selection re-attempts AI instead of reusing the non-AI result)
-
-### Requirement: Superseded selection requests are ignored
-
-A translation request is bound to the selection that issued it. When the user makes a new selection or closes the popup before a request resolves, that request's result SHALL NOT be applied to the popup, and the loading indicator SHALL reflect only the current (latest) request. Only the latest selection's translation is ever shown.
-
-#### Scenario: Re-selecting before the first result discards the first request
-
-- **WHEN** the user selects text A (a request is dispatched), then selects text B before A's response arrives, and A's response arrives after B's
-- **THEN** the popup shows B's translation, and A's late response is ignored (it does not overwrite B)
-
-#### Scenario: Closing the popup cancels a pending result
-
-- **WHEN** a translation request is in flight and the user closes the popup (clicks away so the selection collapses)
-- **THEN** the popup does not reappear when the late response arrives, and the loading indicator is cleared
-
-#### Scenario: A local-cache hit does not leave a stale loading state
-
-- **WHEN** a request is in flight for a prior selection and the user then selects a word resolved instantly from the local dictionary or AI cache
-- **THEN** the popup shows the local result and the loading indicator does not remain stuck on from the superseded request
-
