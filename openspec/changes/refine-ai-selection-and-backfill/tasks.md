@@ -17,9 +17,10 @@
 ## 4. Delta B2 — provider-named backfill badge (already implemented; verify)
 
 - [x] 4.1 Confirmed `src/test/integration/backfill-source.integration.test.ts` covers B1 (cache stores `AI (Kimi)`); passes. No new production code (shipped in c93f102).
+- [x] 4.2 (follow-up) Legacy bare-`AI` cache entries still showed a bare `AI` badge on selection (source frozen before c93f102). RED P1-badge (`expected null to be truthy` — `AI (Gemini)` not rendered); GREEN: `SelectionPopup` computes `displaySource` normalizing a bare `AI` source to `AI (<current provider>)` via `llmProviderLabel`, leaving `AI (X)` untouched (P2-badge guards preservation).
 
 ## 5. Verification & report
 
 - [x] 5.1 `npx vitest run` all green (114 = existing 110 + R1/R2/G1/G2); `npm run build` (tsc + vite) passes.
 - [x] 5.2 Write `qa/qa-report.md`: TDD Red/Green evidence per test ID, execution results, regression status.
-- [ ] 5.3 Manual smoke (user-facing, deferred to user): AI on + CET-4 — `these`/`those` no longer annotated, an advanced word still is; select a long sentence then immediately re-select a word → only the word result shows, no residual popup; a backfilled word's selection badge reads `AI (<model>)`.
+- [x] 5.3 Manual smoke (user-verified): AI on + CET-4 — `these`/`those` no longer annotated, an advanced word still is; long-sentence then immediately re-select a word → only the word result shows, no residual popup; a backfilled word's selection badge reads `AI (<model>)` (legacy bare-`AI` entries normalized to the current provider — task 4.2).

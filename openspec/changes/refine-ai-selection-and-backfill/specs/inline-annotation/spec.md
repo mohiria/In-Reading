@@ -24,3 +24,8 @@ When AI backfill produces an annotation, the stored source label SHALL name the 
 
 - **WHEN** a word is AI-backfilled while the configured provider is (for example) Kimi, and the user later selects that word
 - **THEN** the selection popup's source badge reads `AI (Kimi)` (the provider name), consistent with the sentence/word translation badge
+
+#### Scenario: Legacy bare-"AI" cache entry shows the current provider
+
+- **WHEN** the selected word's cached gloss carries a legacy bare `AI` source (written before provider labeling) and an LLM provider is currently configured
+- **THEN** the selection popup badge is normalized to `AI (<current provider>)`; an already-labeled `AI (X)` source is displayed unchanged (the cached provider is preserved)

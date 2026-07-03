@@ -7,6 +7,7 @@ import { WordExplanation } from '../../common/types'
 import { BookOpen, Plus, Minus, Check, X } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
+import { llmProviderLabel } from '../../common/config'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
 
 export const SelectionPopup = () => {
@@ -179,6 +180,12 @@ export const SelectionPopup = () => {
 
   const currentPron = settings?.pronunciation || 'US'
   const exp = selection.explanation
+  // Legacy ai_cache entries carry a bare "AI" source (written before provider
+  // labeling); show the current provider for them. Already-labeled "AI (X)" and
+  // non-AI sources (Youdao, …) are left untouched.
+  const displaySource = exp?.source === 'AI' && settings?.llm?.provider
+    ? `AI (${llmProviderLabel(settings.llm.provider, settings.llm.baseUrl)})`
+    : exp?.source
   const isKnown = knownWords.includes(selection.text.toLowerCase())
   // Vocabulary / known-words are single-word concepts; hide the save buttons for
   // phrase / sentence selections (which only get a translation).
@@ -195,9 +202,9 @@ export const SelectionPopup = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <BookOpen size={16} color="#4b8bf5" />
           <span style={{ fontSize: '12px', color: '#888', flex: 1 }}>划词翻译</span>
-          {exp?.source && (
+          {displaySource && (
             <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
-              {exp.source}
+              {displaySource}
             </span>
           )}
         </div>
@@ -233,9 +240,9 @@ export const SelectionPopup = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <BookOpen size={18} color="#4b8bf5" />
         <span style={{ fontWeight: 'bold', fontSize: '1.1rem', flex: 1 }}>{selection.text}</span>
-        {exp?.source && (
+        {displaySource && (
           <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
-            {exp.source}
+            {displaySource}
           </span>
         )}
       </div>

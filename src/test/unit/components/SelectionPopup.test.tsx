@@ -40,7 +40,9 @@ vi.mock('../../../../public/dictionaries/confusion-map.json', () => ({
 const mockSettings = {
   pronunciation: 'US',
   proficiency: 'CEFR_A1',
-  showIPA: true
+  showIPA: true,
+  engine: 'llm',
+  llm: { provider: 'gemini', apiKey: 'k', baseUrl: '', model: '' }
 }
 
 vi.mock('../../../common/hooks/useSettings', () => ({
@@ -211,6 +213,41 @@ describe('SelectionPopup Standardization', () => {
 
     expect(screen.queryByText('甲译文')).toBeNull()        // popup did not reopen
     expect(screen.queryByText('Translating...')).toBeNull() // no leftover loading popup
+  })
+
+  it('P1-badge: a legacy bare-"AI" cached source shows the current provider on selection', async () => {
+    // ai_cache entries written before provider labeling carry source: 'AI'.
+    ;(getAiCache as any).mockResolvedValue({
+      legacyword: { word: 'legacyword', meaning: '旧义', source: 'AI' }
+    })
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'legacyword',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+
+    expect(await screen.findByText('旧义')).toBeDefined()
+    expect(screen.queryByText('AI (Gemini)')).toBeTruthy()  // normalized to the current provider
+    expect(screen.queryByText('AI')).toBeNull()             // no bare "AI" badge
+  })
+
+  it('P2-badge: an already-labeled "AI (GPT)" cached source is left unchanged', async () => {
+    ;(getAiCache as any).mockResolvedValue({
+      labeledword: { word: 'labeledword', meaning: '有源', source: 'AI (GPT)' }
+    })
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'labeledword',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+
+    expect(await screen.findByText('有源')).toBeDefined()
+    expect(screen.queryByText('AI (GPT)')).toBeTruthy()      // preserved — not rewritten to Gemini
+    expect(screen.queryByText('AI (Gemini)')).toBeNull()
   })
 
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {

@@ -8,7 +8,7 @@ Two delta specs implemented with TDD:
 
 ## Execution Summary
 
-- Command: `npx vitest run` → **114 passed / 0 failed** (110 baseline + 4 new).
+- Command: `npx vitest run` → **116 passed / 0 failed** (110 baseline + R1/R2/G1/G2 + P1/P2-badge).
 - Build: `npm run build` (tsc + vite) → passed, no type errors.
 
 ## TDD Evidence
@@ -20,6 +20,8 @@ Two delta specs implemented with TDD:
 | G1 | unit | `expected [ 'these', 'ubiquitous' ] to not include 'these'` — no common-words gate, "these" was backfilled | Pass after `commonWords` gate: "these" excluded, "ubiquitous" kept |
 | G2 | unit | (guard) empty common-words set does not drop advanced words | Pass |
 | B1 | integration | pre-existing (`backfill-source.integration.test.ts`): cache stores `AI (Kimi)` | Pass (no code change; shipped in c93f102) |
+| P1-badge | unit (component) | `expected null to be truthy` — a legacy bare-`AI` cache entry rendered a bare `AI` badge (source frozen before c93f102) | Pass after `displaySource` normalizes bare `AI` → `AI (current provider)` |
+| P2-badge | unit (component) | (guard) an `AI (GPT)` cached source must not be rewritten | Pass — preserved unchanged |
 
 ## Production changes
 
