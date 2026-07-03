@@ -153,6 +153,66 @@ describe('SelectionPopup Standardization', () => {
     expect(screen.queryByText(/已掌握/)).toBeNull()
   })
 
+  // --- Request lifecycle (race): superseded requests must not win ---
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const mockSel = (text: string, collapsed = false) => {
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => text,
+      isCollapsed: collapsed,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    }) as any
+  }
+
+  it('R1: a late response from a superseded selection does not overwrite the current one', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    const calls: { text: string; cb: (r: any) => void }[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') calls.push({ text: msg.text, cb })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    // Select "alpha" (request A dispatched, not yet answered)
+    mockSel('alpha')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // Re-select "bravo" before A answers (request B dispatched)
+    mockSel('bravo')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+
+    expect(calls.map(c => c.text)).toEqual(['alpha', 'bravo'])
+    // B answers first, then the stale A answers LAST
+    await act(async () => {
+      calls.find(c => c.text === 'bravo')!.cb({ success: true, data: { word: 'bravo', meaning: '乙译文', source: 'AI (GPT)' } })
+      calls.find(c => c.text === 'alpha')!.cb({ success: true, data: { word: 'alpha', meaning: '甲译文', source: 'AI (GPT)' } })
+    })
+
+    expect(screen.queryByText('乙译文')).toBeTruthy()   // current selection's result
+    expect(screen.queryByText('甲译文')).toBeNull()      // stale result must not appear
+  })
+
+  it('R2: a response arriving after the popup is closed does not reopen it', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    const calls: { text: string; cb: (r: any) => void }[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') calls.push({ text: msg.text, cb })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    mockSel('alpha')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // Close the popup: click blank → selection collapses
+    mockSel('', true)
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // The stale request finally answers
+    await act(async () => {
+      calls.find(c => c.text === 'alpha')?.cb({ success: true, data: { word: 'alpha', meaning: '甲译文', source: 'AI (GPT)' } })
+    })
+
+    expect(screen.queryByText('甲译文')).toBeNull()        // popup did not reopen
+    expect(screen.queryByText('Translating...')).toBeNull() // no leftover loading popup
+  })
+
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {
     // Local miss → goes to network; the returned gloss must be cached.
     ;(getAiCache as any).mockResolvedValue({})

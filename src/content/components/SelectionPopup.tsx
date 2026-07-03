@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
 import { useKnownWords } from '../../common/hooks/useKnownWords'
@@ -15,6 +15,10 @@ export const SelectionPopup = () => {
   const { knownWords, addKnown, removeKnown } = useKnownWords()
   const [loading, setLoading] = useState(false)
   const [tabEnabled, setTabEnabled] = useState(false)
+  // Monotonic request generation: bumped on every selection change (including
+  // close). An async local lookup or a network response whose captured gen no
+  // longer matches has been superseded and MUST NOT touch the popup state.
+  const genRef = useRef(0)
   const [selection, setSelection] = useState<{
     text: string
     rect: DOMRect
@@ -53,18 +57,21 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const handleSelection = async () => {
+      // Every selection/close supersedes any in-flight request for the previous one.
+      const gen = ++genRef.current
       if (!tabEnabled) return
-      
+
       const sel = window.getSelection()
       const text = sel?.toString().trim()
       if (!sel || sel.isCollapsed || !text || text.length > 500 || !/[a-zA-Z]/.test(text)) {
         setSelection(null)
+        setLoading(false)
         return
       }
 
       const rect = sel.getRangeAt(0).getBoundingClientRect()
       const lowerText = text.toLowerCase()
-      
+
       // Dictionary A (Confusion Map) is now standardized
       const confusionEntry = (confusionMap as Record<string, any>)[lowerText]
       let localExp: WordExplanation | null = confusionEntry || await lookupWordInDB(text)
@@ -73,6 +80,7 @@ export const SelectionPopup = () => {
         const aiHit = (await getAiCache([lowerText]))[lowerText]
         if (aiHit) localExp = aiHit as WordExplanation
       }
+      if (gen !== genRef.current) return // superseded during the async local lookup
 
       const isSaved = vocabulary.some(v => v.word.toLowerCase() === lowerText)
 
@@ -80,6 +88,7 @@ export const SelectionPopup = () => {
         const baseExp = isSaved ? vocabulary.find(v => v.word.toLowerCase() === lowerText)! : localExp!
         const explanation = { ...baseExp, ipa: getPreferredIPA(baseExp, settings?.pronunciation || 'US') }
         setSelection({ text, rect, explanation, isSaved })
+        setLoading(false)
         return
       }
 
@@ -91,6 +100,7 @@ export const SelectionPopup = () => {
       chrome.runtime.sendMessage({
         type: 'TRANSLATE_WORD', text, context: text, settings
       }, (res) => {
+        if (gen !== genRef.current) return // a newer selection/close superseded this request
         if (chrome.runtime.lastError) { setLoading(false); return }
         setLoading(false)
         if (res?.success) {
