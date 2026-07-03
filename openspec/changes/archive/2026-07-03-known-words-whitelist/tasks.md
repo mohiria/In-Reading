@@ -27,5 +27,5 @@
 ## 5. 验证与提交
 
 - [x] 5.1 全量 `npx vitest run` 68/68 + `npm run build` 通过；出 `qa/qa-report.md`
-- [ ] 5.2 手动（Brave 读 BBC，开 AI）：标记已掌握→立即去注解、刷新不复现；再划仍可查、可取消恢复；与生词本互斥；Options 可搜/移除恢复（待用户验证）
+- [x] 5.2 手动（Brave 读 BBC，开 AI）：标记已掌握→立即去注解、刷新不复现；再划仍可查、可取消恢复；与生词本互斥；Options 可搜/移除恢复（用户已验证通过）
 - [x] 5.3 提交（Conventional Commits，中文正文）

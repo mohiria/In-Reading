@@ -94,12 +94,17 @@ When AI is enabled (`engine === 'llm'` with an API key) and the device is online
 
 ### Requirement: Backfill candidate selection
 
-Backfill SHALL target only words that remain unresolved after local lookup (including lemma/suffix resolution) and that pass a triviality filter: minimum length and excluding likely proper nouns (tokens only ever seen capitalized). Common words are inherently excluded because they are resolved by the local dictionary; no separate frequency list is required.
+Backfill SHALL target only words that remain unresolved after local lookup (including lemma/suffix resolution) and that pass a triviality filter: minimum length, excluding likely proper nouns (tokens only ever seen capitalized), AND excluding common/high-frequency words listed in a bundled common-words list. The common-words list is required because some trivially easy words — notably function/structural words such as `these`, `those`, `their` — are NOT present in the content dictionary and would otherwise be treated as "unresolved" and backfilled. Words that are genuinely advanced (absent from the local dictionary and not on the common-words list) SHALL still be backfilled.
 
 #### Scenario: Common words are not backfilled
 
-- **WHEN** scanning a page
-- **THEN** words found locally (common words are in the local dictionary), too-short words, or tokens only ever seen capitalized (likely proper nouns) are not included in the backfill request
+- **WHEN** scanning a page that contains a common word absent from the content dictionary (e.g. `these`)
+- **THEN** that word is excluded from the backfill request (via the common-words list), alongside words found locally, too-short words, and tokens only ever seen capitalized
+
+#### Scenario: A genuinely advanced uncovered word is still backfilled
+
+- **WHEN** scanning a page that contains an advanced word absent from the local dictionary and not on the common-words list (e.g. `ubiquitous`)
+- **THEN** that word remains a backfill candidate and is annotated after backfill
 
 ### Requirement: Hyphenated compound words as candidates
 
@@ -160,4 +165,37 @@ A hyphenated alphabetic compound (e.g. `anti-migrant`) SHALL be treated as one t
 
 - **WHEN** a non-hyphenated word (e.g. `migrant`) appears on its own
 - **THEN** it is matched and annotated exactly as before
+
+### Requirement: Known words are not annotated
+
+A word in the user's known-words list SHALL NOT be inline-annotated, even when its CEFR level would otherwise make it annotated. Known-words suppression applies only to the difficulty path; a word explicitly saved to the vocabulary book SHALL still be annotated.
+
+#### Scenario: A known word at/above level is not annotated
+
+- **WHEN** a word that would normally be annotated (its level is at or above the user's level) is in the known-words list
+- **THEN** it is not annotated on the page
+
+#### Scenario: A saved word is still annotated
+
+- **WHEN** a word is in the vocabulary book
+- **THEN** it is annotated regardless of the known-words list (an explicit save takes precedence)
+
+#### Scenario: Marking known removes annotations immediately
+
+- **WHEN** the user marks a word as known
+- **THEN** existing annotations of that word are removed without a full reload; un-marking it restores annotation
+
+### Requirement: Backfilled annotation names the AI provider
+
+When AI backfill produces an annotation, the stored source label SHALL name the configured provider (e.g. `AI (Kimi)`, `AI (Gemini)`), not a bare `AI`, so that a later selection of a backfilled word shows the same provider-named badge as direct selection translation.
+
+#### Scenario: Backfilled word's selection badge names the provider
+
+- **WHEN** a word is AI-backfilled while the configured provider is (for example) Kimi, and the user later selects that word
+- **THEN** the selection popup's source badge reads `AI (Kimi)` (the provider name), consistent with the sentence/word translation badge
+
+#### Scenario: Legacy bare-"AI" cache entry shows the current provider
+
+- **WHEN** the selected word's cached gloss carries a legacy bare `AI` source (written before provider labeling) and an LLM provider is currently configured
+- **THEN** the selection popup badge is normalized to `AI (<current provider>)`; an already-labeled `AI (X)` source is displayed unchanged (the cached provider is preserved)
 
