@@ -1,5 +1,4 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
-import pako from 'pako'
 import { WordExplanation } from '../types'
 import inflections from '../nlp/inflections.json'
 import irregular from '../nlp/irregular-inflections.json'
@@ -146,9 +145,8 @@ export const checkAndUpdateDictionary = async () => {
 }
 
 const importDictionary = async (db: IDBPDatabase<DictionaryDB>, version: number) => {
-  const res = await fetch(chrome.runtime.getURL(`data/dictionary-core.json.gz?t=${version}`))
-  const buffer = await res.arrayBuffer()
-  const data: WordExplanation[] = JSON.parse(pako.inflate(new Uint8Array(buffer), { to: 'string' }))
+  const res = await fetch(chrome.runtime.getURL(`data/dictionary-core.json?t=${version}`))
+  const data: WordExplanation[] = JSON.parse(await res.text())
 
   const tx = db.transaction(STORES.WORDS, 'readwrite')
   const store = tx.objectStore(STORES.WORDS)

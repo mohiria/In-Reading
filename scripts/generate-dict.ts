@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import pako from 'pako';
 
 // --- Configuration ---
 const OUTPUT_DIR = path.join(process.cwd(), 'public', 'data');
-const OUTPUT_FILE = path.join(OUTPUT_DIR, 'dictionary-core.json.gz');
+// Ship uncompressed JSON: Chrome/Edge store validators reject any compressed
+// file inside the package. It's fetched locally at runtime and parsed directly.
+const OUTPUT_FILE = path.join(OUTPUT_DIR, 'dictionary-core.json');
 const VERSION_FILE = path.join(OUTPUT_DIR, 'version.json');
 const OXFORD_SOURCE = path.join(process.cwd(), 'oxford_5000.json');
 
@@ -128,21 +129,18 @@ const main = async () => {
 
     console.log(`Total Unified Entries: ${entries.length}`);
 
-    // 3. Serialize & Compress
+    // 3. Serialize (uncompressed — store validators reject compressed files)
     const jsonString = JSON.stringify(entries);
     const mbSize = (jsonString.length / 1024 / 1024).toFixed(2);
-    const compressed = pako.deflate(jsonString);
-    const compMbSize = (compressed.length / 1024 / 1024).toFixed(2);
-    
-    console.log(`Raw: ${mbSize} MB, Compressed: ${compMbSize} MB`);
 
-    fs.writeFileSync(OUTPUT_FILE, compressed);
-    
-    const versionInfo = { 
-        version: Date.now(), 
+    console.log(`Raw: ${mbSize} MB`);
+
+    fs.writeFileSync(OUTPUT_FILE, jsonString);
+
+    const versionInfo = {
+        version: Date.now(),
         count: entries.length,
-        size_raw: mbSize + 'MB',
-        size_gzip: compMbSize + 'MB'
+        size_raw: mbSize + 'MB'
     };
     fs.writeFileSync(VERSION_FILE, JSON.stringify(versionInfo, null, 2));
 

@@ -1,5 +1,6 @@
 import { UserSettings } from '../../common/types'
 import { formatIPA } from '../../common/utils/format'
+import { llmProviderLabel } from '../../common/config'
 
 interface LLMResponse {
   word: string
@@ -71,6 +72,33 @@ have this exact structure (no extra keys, no commentary):
 `
 }
 
+// Full-text translation prompt for phrase/sentence selections. Unlike the
+// single-word prompt, it asks for a complete, faithful translation (no
+// summarizing/paraphrasing) so clauses aren't dropped, and returns plain text.
+const buildSentencePrompt = (text: string): string => `You are a professional English-to-Chinese translator.
+Translate the text below into natural, fluent Simplified Chinese.
+Translate the ENTIRE text faithfully — every clause and every parenthetical aside. Do NOT summarize, omit, merge, or paraphrase away any part.
+Output ONLY the Chinese translation as plain text: no quotes, no pinyin, no explanation, no original English.
+
+Text:
+${text}`
+
+// Hard ceiling on any single LLM call. Without it a slow "thinking" model (or a
+// hung connection) leaves the selection popup stuck on "Translating…" forever;
+// on timeout the call rejects and the orchestrator falls back to machine translation.
+const LLM_TIMEOUT_MS = 20000
+
+const fetchJson = async (url: string, init: RequestInit): Promise<any> => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS)
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    return await response.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // Sends a prompt to the configured provider and returns the raw model text.
 const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<string> => {
   const { provider, apiKey, baseUrl, model } = settings.llm
@@ -83,19 +111,18 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
   if (provider === 'gemini') {
     const host = baseUrl ? baseUrl.replace(/\/$/, '') : 'https://generativelanguage.googleapis.com'
     const url = `${host}/v1beta/models/${model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`
-    const response = await fetch(url, {
+    const data = await fetchJson(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     })
-    const data = await response.json()
     if (data.error) throw new Error(data.error.message)
     return data.candidates[0].content.parts[0].text
   }
 
   // 2. Anthropic native (claude without a custom baseUrl)
   if (provider === 'claude' && !baseUrl) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const data = await fetchJson('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -108,7 +135,6 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
         messages: [{ role: 'user', content: prompt }]
       })
     })
-    const data = await response.json()
     if (data.error) throw new Error(data.error.message)
     return data.content[0].text
   }
@@ -123,11 +149,15 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
     endpoint = baseUrl ? `${baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://api.deepseek.com/chat/completions'
     modelName = model || 'deepseek-chat'
   } else if (provider === 'moonshot') {
+    // Default to the fast, non-thinking model: the kimi-k2.x "thinking" models
+    // reject temperature and take ~30s+ per call (too slow for an inline popup).
     endpoint = baseUrl ? `${baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://api.moonshot.cn/v1/chat/completions'
-    modelName = model || 'kimi-k2.5'
+    modelName = model || 'moonshot-v1-8k'
   } else if (provider === 'zhipu') {
+    // glm-4-flash is the reliable free non-thinking model; glm-4.x-flash "thinking"
+    // variants are slow and the flagship free model is frequently rate-limited (429).
     endpoint = baseUrl ? `${baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
-    modelName = model || 'glm-4.7-flash'
+    modelName = model || 'glm-4-flash'
   } else if (provider === 'qwen') {
     endpoint = baseUrl ? `${baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
     modelName = model || 'qwen3.5-flash'
@@ -140,7 +170,9 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
     endpoint = `${baseUrl}/chat/completions`
   }
 
-  const response = await fetch(endpoint, {
+  // No `temperature`: some "thinking" models (e.g. kimi-k2.x) reject anything other
+  // than 1 with a 400 ("only 1 is allowed for this model"); omitting it works everywhere.
+  const data = await fetchJson(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -151,25 +183,19 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
       messages: [
         { role: 'system', content: 'You are a helpful dictionary assistant. Output valid JSON only.' },
         { role: 'user', content: prompt }
-      ],
-      temperature: 0.3
+      ]
     })
   })
 
-  const data = await response.json()
   if (data.error) throw new Error(typeof data.error === 'string' ? data.error : data.error.message)
-  return data.choices[0].message.content
+  const msg = data.choices?.[0]?.message
+  // Non-thinking models return the answer in `content`; some thinking models leave
+  // `content` empty and put the text in `reasoning_content`.
+  return msg?.content || msg?.reasoning_content || ''
 }
 
-const sourceLabel = (settings: UserSettings): string => {
-  const { provider, baseUrl } = settings.llm
-  if (provider === 'gemini') return 'Gemini'
-  if (provider === 'openai') return 'GPT'
-  if (provider === 'deepseek') return 'Deepseek'
-  if (provider === 'custom') return 'Custom AI'
-  if (provider === 'claude') return baseUrl ? 'Claude (Proxy)' : 'Claude'
-  return 'AI'
-}
+const sourceLabel = (settings: UserSettings): string =>
+  llmProviderLabel(settings.llm.provider, settings.llm.baseUrl)
 
 export const fetchFromLLM = async (
   word: string,
@@ -178,6 +204,17 @@ export const fetchFromLLM = async (
 ): Promise<LLMResponse> => {
   const text = await callLLMRaw(buildSinglePrompt(word, contextSentence), settings)
   return parseLLMJson(text, sourceLabel(settings), settings.pronunciation)
+}
+
+// Translates a phrase/sentence selection in full and returns the translation in
+// `meaning` (no IPA/POS) — rendered by the long-text card in SelectionPopup.
+export const translateTextLLM = async (
+  text: string,
+  settings: UserSettings
+): Promise<LLMResponse> => {
+  const raw = await callLLMRaw(buildSentencePrompt(text), settings)
+  const meaning = raw.replace(/```/g, '').trim()
+  return { word: text, ipa: '', meaning, context: '', source: `AI (${sourceLabel(settings)})` }
 }
 
 // Explains up to BATCH_LIMIT words in one request. Returns a map keyed by the

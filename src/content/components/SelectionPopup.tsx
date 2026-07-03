@@ -174,9 +174,11 @@ export const SelectionPopup = () => {
   // phrase / sentence selections (which only get a translation).
   const isSingleWord = !/\s/.test(selection.text.trim())
 
-  // Long text (a sentence / paragraph) gets a reading-oriented card instead of the
-  // word layout: wider, muted original on top, a divider, then a prominent translation.
-  const isLongText = !isSingleWord && selection.text.trim().length > 40
+  // Any multi-word selection (phrase or sentence) gets a reading-oriented card
+  // instead of the word layout: wider, muted original on top, a divider, then the
+  // prominent full translation — matching that multi-word selections now return a
+  // complete translation rather than a single-word explanation.
+  const isLongText = !isSingleWord
   if (isLongText) {
     return (
       <div style={{ ...style, maxWidth: '480px', minWidth: '320px' }}>

@@ -1,4 +1,4 @@
-import { fetchFromLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
+import { fetchFromLLM, translateTextLLM, fetchBatchFromLLM, BatchItem, BatchGloss } from './llm'
 import { UserSettings } from '../common/types'
 import { getSettings } from '../common/storage/settings'
 import { resetDictionaryCache } from '../common/storage/indexed-db'
@@ -57,16 +57,19 @@ const toggleTabState = async (tabId: number) => {
 async function handleTranslationRequest(text: string, contextSentence: string, settings?: UserSettings) {
   const preferredPron = settings?.pronunciation || 'US'
   
-  // 1. LLM Priority
+  const isSingleWord = text.trim().split(/\s+/).length === 1
+
+  // 1. LLM Priority — a single word gets an IPA + meaning explanation; a phrase or
+  // sentence gets a complete translation (not a one-word "explanation" that drops clauses).
   if (settings?.engine === 'llm' && settings.llm.apiKey) {
     try {
-      return await fetchFromLLM(text, contextSentence || text, settings)
+      return isSingleWord
+        ? await fetchFromLLM(text, contextSentence || text, settings)
+        : await translateTextLLM(text, settings)
     } catch (e) {
       console.error('LLM translation failed, falling back to dictionary', e)
     }
   }
-
-  const isSingleWord = text.trim().split(/\s+/).length === 1
 
   // 2. Dictionary Lookup (for single words)
   if (isSingleWord) {

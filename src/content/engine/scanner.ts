@@ -146,7 +146,8 @@ export const scanAndHighlight = async (
   shouldClear: boolean = false,
   showIPA: boolean = true,
   backfill?: BackfillFn,
-  knownWords: Set<string> = new Set()
+  knownWords: Set<string> = new Set(),
+  aiSource: string = 'AI'
 ) => {
   if (shouldClear) clearHighlights(root)
 
@@ -182,7 +183,7 @@ export const scanAndHighlight = async (
   // 4. Phase 2 — opt-in online backfill of locally-uncovered words. Skipped
   //    entirely when no backfill fn is injected (AI off / offline) → local-only.
   if (!backfill) return
-  await runBackfill(root, level, pronunciation, showIPA, combinedDict, candidates, everLower, contextMap, backfill, knownWords)
+  await runBackfill(root, level, pronunciation, showIPA, combinedDict, candidates, everLower, contextMap, backfill, knownWords, aiSource)
 }
 
 /**
@@ -256,7 +257,8 @@ const runBackfill = async (
   everLower: Set<string>,
   contextMap: Map<string, string>,
   backfill: BackfillFn,
-  knownWords: Set<string> = new Set()
+  knownWords: Set<string> = new Set(),
+  aiSource: string = 'AI'
 ) => {
   // Resolved locally if it is in the merged dict or the confusion map (incl. lemma).
   const isResolved = (w: string) => !!combinedDict[w] || getLemmaKeys(w).some(k => !!confusionMap[k])
@@ -285,7 +287,7 @@ const runBackfill = async (
     )
     for (const r of batchResults) Object.assign(fetched, r)
     const toCache: AiCacheEntry[] = Object.entries(fetched).map(([word, g]) => ({
-      word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source: 'AI'
+      word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source: aiSource
     }))
     if (toCache.length > 0) await putAiCache(toCache).catch(() => {})
   }
@@ -295,8 +297,8 @@ const runBackfill = async (
   const addGloss = (word: string, g: BackfillGloss, source: string) => {
     backfillDict[word] = { word, meaning: g.meaning, ipa_us: g.ipa_us, ipa_uk: g.ipa_uk, source } as WordExplanation
   }
-  for (const [w, g] of Object.entries(cached)) addGloss(w, g, g.source || 'AI')
-  for (const [w, g] of Object.entries(fetched)) addGloss(w, g, 'AI')
+  for (const [w, g] of Object.entries(cached)) addGloss(w, g, g.source || aiSource)
+  for (const [w, g] of Object.entries(fetched)) addGloss(w, g, aiSource)
   if (Object.keys(backfillDict).length === 0) return
 
   // Re-annotate: backfill-only dict + empty vocabulary so existing local/saved
