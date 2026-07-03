@@ -7,8 +7,8 @@ export const LLM_DEFAULT_MODELS: Record<LLMProvider, string> = {
   openai: 'gpt-5.4-mini',
   claude: 'claude-haiku-4-5',
   deepseek: 'deepseek-v4-flash',
-  moonshot: 'kimi-k2.6',
-  zhipu: 'glm-4.7-flash',
+  moonshot: 'moonshot-v1-8k',
+  zhipu: 'glm-4-flash',
   qwen: 'qwen3.6-flash',
   custom: 'e.g. gpt-4-turbo'
 }
