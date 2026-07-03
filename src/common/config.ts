@@ -13,6 +13,22 @@ export const LLM_DEFAULT_MODELS: Record<LLMProvider, string> = {
   custom: 'e.g. gpt-4-turbo'
 }
 
+// Human display name for an LLM provider, used in the "AI (<name>)" source badge
+// (and the inline-backfill AI cache) so every provider is named, not a generic "AI".
+export const llmProviderLabel = (provider: LLMProvider, baseUrl?: string): string => {
+  switch (provider) {
+    case 'gemini': return 'Gemini'
+    case 'openai': return 'GPT'
+    case 'deepseek': return 'DeepSeek'
+    case 'moonshot': return 'Kimi'
+    case 'zhipu': return 'GLM'
+    case 'qwen': return 'Qwen'
+    case 'custom': return 'Custom'
+    case 'claude': return baseUrl ? 'Claude (Proxy)' : 'Claude'
+    default: return 'AI'
+  }
+}
+
 export const LLM_DEFAULT_URLS: Record<LLMProvider, string> = {
   gemini: 'https://generativelanguage.googleapis.com',
   openai: 'https://api.openai.com/v1',

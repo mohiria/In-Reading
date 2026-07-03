@@ -6,6 +6,7 @@ import { getVocabulary } from '../common/storage/vocabulary'
 import { getKnownWords } from '../common/storage/knownWords'
 import { initDictionaryService } from '../common/storage/dictionary-service'
 import { batchLookupWords } from '../common/storage/indexed-db'
+import { llmProviderLabel } from '../common/config'
 import { Overlay } from './components/Overlay'
 import { SelectionPopup } from './components/SelectionPopup'
 
@@ -57,9 +58,13 @@ const runScan = async (forceClear = false) => {
         }
       : undefined
 
+    // Label backfilled words with the actual provider (e.g. "AI (Kimi)") so a later
+    // single-word selection shows the model name, matching the sentence-translation badge.
+    const aiSource = shouldBackfill ? `AI (${llmProviderLabel(settings.llm.provider, settings.llm.baseUrl)})` : 'AI'
+
     await scanAndHighlight(
       document.body, settings.proficiency, vocabSet, vocabMap,
-      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn, knownSet
+      settings.pronunciation, batchLookupWords, forceClear, settings.showIPA, backfillFn, knownSet, aiSource
     )
   } finally {
     isScanning = false

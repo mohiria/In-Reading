@@ -1,5 +1,6 @@
 import { UserSettings } from '../../common/types'
 import { formatIPA } from '../../common/utils/format'
+import { llmProviderLabel } from '../../common/config'
 
 interface LLMResponse {
   word: string
@@ -193,18 +194,8 @@ const callLLMRaw = async (prompt: string, settings: UserSettings): Promise<strin
   return msg?.content || msg?.reasoning_content || ''
 }
 
-const sourceLabel = (settings: UserSettings): string => {
-  const { provider, baseUrl } = settings.llm
-  if (provider === 'gemini') return 'Gemini'
-  if (provider === 'openai') return 'GPT'
-  if (provider === 'deepseek') return 'DeepSeek'
-  if (provider === 'moonshot') return 'Kimi'
-  if (provider === 'zhipu') return 'GLM'
-  if (provider === 'qwen') return 'Qwen'
-  if (provider === 'custom') return 'Custom'
-  if (provider === 'claude') return baseUrl ? 'Claude (Proxy)' : 'Claude'
-  return 'AI'
-}
+const sourceLabel = (settings: UserSettings): string =>
+  llmProviderLabel(settings.llm.provider, settings.llm.baseUrl)
 
 export const fetchFromLLM = async (
   word: string,
