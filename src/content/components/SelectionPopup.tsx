@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useSettings } from '../../common/hooks/useSettings'
 import { useVocabulary } from '../../common/hooks/useVocabulary'
 import { useKnownWords } from '../../common/hooks/useKnownWords'
@@ -7,6 +7,8 @@ import { WordExplanation } from '../../common/types'
 import { BookOpen, Plus, Minus, Check, X } from 'lucide-react'
 import { VoiceIcon } from './VoiceIcon'
 import { getPreferredIPA } from '../../common/utils/format'
+import { llmProviderLabel } from '../../common/config'
+import { isAiSource } from '../engine/backfill'
 import confusionMap from '../../../public/dictionaries/confusion-map.json'
 
 export const SelectionPopup = () => {
@@ -15,6 +17,10 @@ export const SelectionPopup = () => {
   const { knownWords, addKnown, removeKnown } = useKnownWords()
   const [loading, setLoading] = useState(false)
   const [tabEnabled, setTabEnabled] = useState(false)
+  // Monotonic request generation: bumped on every selection change (including
+  // close). An async local lookup or a network response whose captured gen no
+  // longer matches has been superseded and MUST NOT touch the popup state.
+  const genRef = useRef(0)
   const [selection, setSelection] = useState<{
     text: string
     rect: DOMRect
@@ -53,26 +59,33 @@ export const SelectionPopup = () => {
 
   useEffect(() => {
     const handleSelection = async () => {
+      // Every selection/close supersedes any in-flight request for the previous one.
+      const gen = ++genRef.current
       if (!tabEnabled) return
-      
+
       const sel = window.getSelection()
       const text = sel?.toString().trim()
       if (!sel || sel.isCollapsed || !text || text.length > 500 || !/[a-zA-Z]/.test(text)) {
         setSelection(null)
+        setLoading(false)
         return
       }
 
       const rect = sel.getRangeAt(0).getBoundingClientRect()
       const lowerText = text.toLowerCase()
-      
+
       // Dictionary A (Confusion Map) is now standardized
       const confusionEntry = (confusionMap as Record<string, any>)[lowerText]
       let localExp: WordExplanation | null = confusionEntry || await lookupWordInDB(text)
       if (!localExp) {
         // Reuse a gloss already AI-backfilled on the page (instant, no network).
-        const aiHit = (await getAiCache([lowerText]))[lowerText]
-        if (aiHit) localExp = aiHit as WordExplanation
+        // Under AI, a non-AI cached gloss (legacy Youdao pollution / standard-mode
+        // leftover) is ignored so the selection re-queries AI instead of serving it.
+        const aiHit = (await getAiCache([lowerText]))[lowerText] as WordExplanation | undefined
+        const staleNonAi = settings?.engine === 'llm' && aiHit && !isAiSource(aiHit.source)
+        if (aiHit && !staleNonAi) localExp = aiHit
       }
+      if (gen !== genRef.current) return // superseded during the async local lookup
 
       const isSaved = vocabulary.some(v => v.word.toLowerCase() === lowerText)
 
@@ -80,6 +93,7 @@ export const SelectionPopup = () => {
         const baseExp = isSaved ? vocabulary.find(v => v.word.toLowerCase() === lowerText)! : localExp!
         const explanation = { ...baseExp, ipa: getPreferredIPA(baseExp, settings?.pronunciation || 'US') }
         setSelection({ text, rect, explanation, isSaved })
+        setLoading(false)
         return
       }
 
@@ -91,12 +105,15 @@ export const SelectionPopup = () => {
       chrome.runtime.sendMessage({
         type: 'TRANSLATE_WORD', text, context: text, settings
       }, (res) => {
+        if (gen !== genRef.current) return // a newer selection/close superseded this request
         if (chrome.runtime.lastError) { setLoading(false); return }
         setLoading(false)
         if (res?.success) {
           setSelection(prev => prev ? { ...prev, explanation: res.data } : null)
           // Cache single-word results so a repeat selection resolves instantly.
-          if (res.data?.meaning && !/\s/.test(text)) {
+          // AI-only cache: a non-AI fallback (Youdao/iCIBA/Google) is shown but not
+          // cached, so a later selection re-attempts AI instead of reusing it.
+          if (res.data?.meaning && !/\s/.test(text) && isAiSource(res.data.source)) {
             putAiCache([{
               word: lowerText,
               meaning: res.data.meaning,
@@ -169,6 +186,12 @@ export const SelectionPopup = () => {
 
   const currentPron = settings?.pronunciation || 'US'
   const exp = selection.explanation
+  // Legacy ai_cache entries carry a bare "AI" source (written before provider
+  // labeling); show the current provider for them. Already-labeled "AI (X)" and
+  // non-AI sources (Youdao, …) are left untouched.
+  const displaySource = exp?.source === 'AI' && settings?.llm?.provider
+    ? `AI (${llmProviderLabel(settings.llm.provider, settings.llm.baseUrl)})`
+    : exp?.source
   const isKnown = knownWords.includes(selection.text.toLowerCase())
   // Vocabulary / known-words are single-word concepts; hide the save buttons for
   // phrase / sentence selections (which only get a translation).
@@ -185,9 +208,9 @@ export const SelectionPopup = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <BookOpen size={16} color="#4b8bf5" />
           <span style={{ fontSize: '12px', color: '#888', flex: 1 }}>划词翻译</span>
-          {exp?.source && (
+          {displaySource && (
             <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
-              {exp.source}
+              {displaySource}
             </span>
           )}
         </div>
@@ -223,9 +246,9 @@ export const SelectionPopup = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <BookOpen size={18} color="#4b8bf5" />
         <span style={{ fontWeight: 'bold', fontSize: '1.1rem', flex: 1 }}>{selection.text}</span>
-        {exp?.source && (
+        {displaySource && (
           <span style={{ fontSize: '10px', backgroundColor: '#f5f5f5', color: '#888', padding: '2px 6px', borderRadius: '4px' }}>
-            {exp.source}
+            {displaySource}
           </span>
         )}
       </div>

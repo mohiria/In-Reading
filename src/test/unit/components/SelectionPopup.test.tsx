@@ -40,7 +40,9 @@ vi.mock('../../../../public/dictionaries/confusion-map.json', () => ({
 const mockSettings = {
   pronunciation: 'US',
   proficiency: 'CEFR_A1',
-  showIPA: true
+  showIPA: true,
+  engine: 'llm',
+  llm: { provider: 'gemini', apiKey: 'k', baseUrl: '', model: '' }
 }
 
 vi.mock('../../../common/hooks/useSettings', () => ({
@@ -151,6 +153,148 @@ describe('SelectionPopup Standardization', () => {
     // Multi-word selection → no vocabulary/known save buttons.
     expect(screen.queryByText(/生词本/)).toBeNull()
     expect(screen.queryByText(/已掌握/)).toBeNull()
+  })
+
+  // --- Request lifecycle (race): superseded requests must not win ---
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const mockSel = (text: string, collapsed = false) => {
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => text,
+      isCollapsed: collapsed,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    }) as any
+  }
+
+  it('R1: a late response from a superseded selection does not overwrite the current one', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    const calls: { text: string; cb: (r: any) => void }[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') calls.push({ text: msg.text, cb })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    // Select "alpha" (request A dispatched, not yet answered)
+    mockSel('alpha')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // Re-select "bravo" before A answers (request B dispatched)
+    mockSel('bravo')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+
+    expect(calls.map(c => c.text)).toEqual(['alpha', 'bravo'])
+    // B answers first, then the stale A answers LAST
+    await act(async () => {
+      calls.find(c => c.text === 'bravo')!.cb({ success: true, data: { word: 'bravo', meaning: '乙译文', source: 'AI (GPT)' } })
+      calls.find(c => c.text === 'alpha')!.cb({ success: true, data: { word: 'alpha', meaning: '甲译文', source: 'AI (GPT)' } })
+    })
+
+    expect(screen.queryByText('乙译文')).toBeTruthy()   // current selection's result
+    expect(screen.queryByText('甲译文')).toBeNull()      // stale result must not appear
+  })
+
+  it('R2: a response arriving after the popup is closed does not reopen it', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    const calls: { text: string; cb: (r: any) => void }[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') calls.push({ text: msg.text, cb })
+    })
+
+    await act(async () => { render(<SelectionPopup />) })
+    mockSel('alpha')
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // Close the popup: click blank → selection collapses
+    mockSel('', true)
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(25) })
+    // The stale request finally answers
+    await act(async () => {
+      calls.find(c => c.text === 'alpha')?.cb({ success: true, data: { word: 'alpha', meaning: '甲译文', source: 'AI (GPT)' } })
+    })
+
+    expect(screen.queryByText('甲译文')).toBeNull()        // popup did not reopen
+    expect(screen.queryByText('Translating...')).toBeNull() // no leftover loading popup
+  })
+
+  it('P1-badge: a legacy bare-"AI" cached source shows the current provider on selection', async () => {
+    // ai_cache entries written before provider labeling carry source: 'AI'.
+    ;(getAiCache as any).mockResolvedValue({
+      legacyword: { word: 'legacyword', meaning: '旧义', source: 'AI' }
+    })
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'legacyword',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+
+    expect(await screen.findByText('旧义')).toBeDefined()
+    expect(screen.queryByText('AI (Gemini)')).toBeTruthy()  // normalized to the current provider
+    expect(screen.queryByText('AI')).toBeNull()             // no bare "AI" badge
+  })
+
+  it('P2-badge: an already-labeled "AI (GPT)" cached source is left unchanged', async () => {
+    ;(getAiCache as any).mockResolvedValue({
+      labeledword: { word: 'labeledword', meaning: '有源', source: 'AI (GPT)' }
+    })
+    window.getSelection = vi.fn().mockReturnValue({
+      toString: () => 'labeledword',
+      isCollapsed: false,
+      getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, left: 100, width: 100, height: 100 }) })
+    })
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+
+    expect(await screen.findByText('有源')).toBeDefined()
+    expect(screen.queryByText('AI (GPT)')).toBeTruthy()      // preserved — not rewritten to Gemini
+    expect(screen.queryByText('AI (Gemini)')).toBeNull()
+  })
+
+  it('S2: a non-AI cached entry is re-queried via AI (not served from cache)', async () => {
+    // Legacy pollution: word cached with a Youdao source.
+    ;(getAiCache as any).mockResolvedValue({
+      pollutedword: { word: 'pollutedword', meaning: '旧有道义', source: 'Youdao' }
+    })
+    const sent: string[] = []
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') { sent.push(msg.text); cb({ success: true, data: { word: 'pollutedword', meaning: 'AI译文', source: 'AI (Gemini)' } }) }
+    })
+    mockSel('pollutedword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(sent).toContain('pollutedword')                 // AI re-queried, not served from Youdao cache
+    expect(screen.queryByText('AI译文')).toBeTruthy()
+    expect(screen.queryByText('AI (Gemini)')).toBeTruthy()
+    expect(screen.queryByText('旧有道义')).toBeNull()
+  })
+
+  it('S3a: a Youdao fallback result is shown but NOT written to ai_cache', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') cb({ success: true, data: { word: 'freshword', meaning: '有道义', source: 'Youdao' } })
+    })
+    mockSel('freshword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(screen.queryByText('有道义')).toBeTruthy()       // shown this time
+    expect(putAiCache).not.toHaveBeenCalled()               // but not cached (AI-only cache)
+  })
+
+  it('S3b: an AI result IS written to ai_cache', async () => {
+    ;(getAiCache as any).mockResolvedValue({})
+    chromeMock.runtime.sendMessage.mockImplementation((msg: any, cb: any) => {
+      if (msg.type === 'GET_TAB_STATE') { cb({ enabled: true }); return }
+      if (msg.type === 'TRANSLATE_WORD') cb({ success: true, data: { word: 'aiword', meaning: 'AI义', source: 'AI (Gemini)' } })
+    })
+    mockSel('aiword')
+    await act(async () => { render(<SelectionPopup />) })
+    await act(async () => { document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await sleep(30) })
+
+    expect(putAiCache).toHaveBeenCalledWith([expect.objectContaining({ word: 'aiword', source: 'AI (Gemini)' })])
   })
 
   it('C2: a network translation result is written to ai_cache for instant reuse', async () => {

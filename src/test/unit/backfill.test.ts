@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { extractCandidates, selectUnknownHard } from '../../content/engine/backfill'
+import { extractCandidates, selectUnknownHard, isAiSource } from '../../content/engine/backfill'
+
+describe('isAiSource', () => {
+  it('U1: true only for AI-produced sources', () => {
+    expect(isAiSource('AI')).toBe(true)
+    expect(isAiSource('AI (Kimi)')).toBe(true)
+    expect(isAiSource('AI (Gemini)')).toBe(true)
+    expect(isAiSource('Youdao')).toBe(false)
+    expect(isAiSource('iCIBA')).toBe(false)
+    expect(isAiSource('Google')).toBe(false)
+    expect(isAiSource('Oxford 5000')).toBe(false)
+    expect(isAiSource('')).toBe(false)
+    expect(isAiSource(undefined)).toBe(false)
+  })
+})
 
 describe('extractCandidates', () => {
   it('B1: treats a hyphenated compound as one candidate', () => {
@@ -42,6 +56,25 @@ describe('selectUnknownHard', () => {
   it('B5: excludes too-short words (core length < 4)', () => {
     const out = selectUnknownHard(['via', 'ubiquitous'], opts({ everLower: ['via', 'ubiquitous'] }))
     expect(out).not.toContain('via')
+    expect(out).toContain('ubiquitous')
+  })
+
+  it('G1: excludes common/high-frequency words on the common-words list (e.g. "these")', () => {
+    const out = selectUnknownHard(['these', 'ubiquitous'], {
+      isResolved: () => false,                 // neither is in the local dict
+      everLower: new Set(['these', 'ubiquitous']),
+      commonWords: new Set(['these'])          // "these" is a trivial structural word
+    })
+    expect(out).not.toContain('these')         // gated out — not backfilled
+    expect(out).toContain('ubiquitous')        // genuinely advanced — still backfilled
+  })
+
+  it('G2: an empty/absent common-words set does not exclude advanced words', () => {
+    const out = selectUnknownHard(['ubiquitous'], {
+      isResolved: () => false,
+      everLower: new Set(['ubiquitous']),
+      commonWords: new Set<string>()
+    })
     expect(out).toContain('ubiquitous')
   })
 })
