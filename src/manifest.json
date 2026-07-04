@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "In Reading",
   "version": "1.0.0",
-  "description": "The immersive reading assistant for foreign language learners. Master native content with smart, level-aware annotations designed for natural language acquisition.",
+  "description": "Immersive foreign-language reading: only words above your level get a small inline gloss (IPA + short meaning).",
   "author": "mohiria",
   "homepage_url": "https://github.com/mohiria/In-Reading",
   "permissions": [
