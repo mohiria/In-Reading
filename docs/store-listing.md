@@ -81,32 +81,32 @@ word translation.
 - Public privacy-policy URL: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md (live on main).
 - Support contact (email or repo issues URL).
 
-## Edge Partner Center — Privacy form answers (copy-paste)
+## Edge Partner Center — 隐私表单答案(可直接粘贴)
 
-**Single purpose**
+**单一用途**
 
-> In Reading helps language learners read foreign-language web pages: it adds inline, level-appropriate vocabulary annotations (IPA + short meaning) and provides on-demand translation of selected words or sentences.
+> In Reading 是一款外语网页阅读助手:在用户阅读的页面上,只对高于其当前水平的生词做原位注解(音标 + 简短释义),并支持对选中的单词或句子按需翻译。
 
-**Permission justifications**
+**权限理由**
 
-- **storage** — Store the user's settings, vocabulary book, known-words list, and a local dictionary/AI cache. Nothing leaves the device by itself.
-- **activeTab** — Act only on the page the user is actively reading, and only when they turn the extension on (toolbar icon or Alt+A).
-- **Host permissions** (covers the `<all_urls>` content script + API origins) — The content script runs on the pages the user chooses to read to detect and annotate vocabulary in place (it only reads page text to render annotations). The host origins — Google Translate, Youdao, iCIBA, and the optional AI providers (Google Gemini, OpenAI, Anthropic, DeepSeek, Moonshot/Kimi, Zhipu/GLM, Alibaba Qwen) — are used to send translation/definition requests to the dictionary/AI service the user selects, using the user's own API key. The optional `https://*/*` permission is requested at runtime only if the user configures a custom OpenAI-compatible endpoint.
+- **storage** — 用于保存用户的设置、生词本、已掌握词列表,以及本地词库/AI 缓存。数据仅存于本地,插件本身不会外发。
+- **activeTab** — 仅在用户主动开启插件时(点击工具栏图标或按 Alt+A),作用于用户当前正在阅读的页面。
+- **Host 权限**(涵盖 `<all_urls>` 内容脚本 + API 域名) — 内容脚本运行在用户选择阅读的网页上,用于识别并原位注解生词(仅读取页面文本以渲染注解)。所列 host 域名——Google 翻译、有道、iCIBA,以及可选的 AI 服务(Google Gemini、OpenAI、Anthropic、DeepSeek、Moonshot/Kimi、智谱/GLM、阿里通义千问)——用于把翻译/查词请求发送到用户所选择的词典/AI 服务,使用用户自己的 API Key。可选的 `https://*/*` 权限仅在用户配置自定义 OpenAI 兼容端点时于运行时申请。
 
-**Are you using remote code? — No**
+**你在使用远程代码吗? — 否**
 
-> All executable code (JavaScript/WASM) ships inside the extension package. The extension never loads, injects, or evals remote scripts. It only makes network requests to translation/dictionary APIs to retrieve translation DATA (text/JSON), which is parsed and displayed, never executed.
+> 所有可执行代码(JavaScript/WASM)均随插件包一起发布。插件不会加载、注入或 eval 任何远程脚本;它只通过网络请求向翻译/词典 API 获取翻译**数据**(文本/JSON),这些数据仅被解析并展示,绝不作为代码执行。
 
-**What user data do you collect/use?**
+**你计划收集哪些用户数据?**
 
-- Personally identifiable info / Health / Financial & payment / Personal communications / Location / Web history / User activity → **No (leave unchecked)**
-- **Authentication information → Yes** — the third-party translation/AI API key the user enters themselves; stored only locally (local/sync, may sync via the browser account) and used only to make requests to the user's chosen service on their behalf; never sent to the developer.
-- **Website content → Yes** — to annotate in place, the extension reads the current page's text; for select-to-translate it sends the selected text (and a little surrounding context) to the translation/AI service the user chose. Never sent to the developer; not retained on any developer server.
+- 个人身份信息 / 健康信息 / 财务和付款信息 / 个人通信 / 位置 / Web 历史记录 / 用户活动 → **均不勾选(否)**
+- **身份认证信息 → 勾选(是)** — 用户自行填写的第三方翻译/AI 服务 API Key;仅存储于本地(local/sync,可随浏览器账号同步),仅用于代表用户向其所选服务发起请求;绝不发送给开发者。
+- **网站内容 → 勾选(是)** — 为实现原位注解,插件会读取当前页面文本;划词/整句翻译时会把选中的文本(及少量上下文)发送到用户所选的翻译/AI 服务。绝不发送给开发者,也不留存于任何开发者服务器。
 
-**Data-use certifications (all compliant → can be attested)**
+**数据使用认证(均符合,可勾选)**
 
-- Not using/transferring data for unrelated purposes: compliant.
-- Not using data to determine creditworthiness / for lending: compliant.
-- Not selling or transferring data to third parties: compliant (sending text to the service the *user themselves selects* is the approved use case required to deliver the core feature, not a sale/transfer).
+- 不将数据用于与单一用途无关的目的:符合。
+- 不将数据用于判断信用状况或放贷:符合。
+- 不出售或转让数据给第三方:符合(向用户**自己选择**的翻译/AI 服务发送文本,是实现核心功能所必需的“已批准用途”,不属于出售或转让)。
 
-**Privacy policy URL**: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md
+**隐私策略 URL**:https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md
