@@ -80,3 +80,33 @@ word translation.
 - (Chrome, optional) small promo tile 440×280.
 - Public privacy-policy URL: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md (live on main).
 - Support contact (email or repo issues URL).
+
+## Edge Partner Center — Privacy form answers (copy-paste)
+
+**Single purpose**
+
+> In Reading helps language learners read foreign-language web pages: it adds inline, level-appropriate vocabulary annotations (IPA + short meaning) and provides on-demand translation of selected words or sentences.
+
+**Permission justifications**
+
+- **storage** — Store the user's settings, vocabulary book, known-words list, and a local dictionary/AI cache. Nothing leaves the device by itself.
+- **activeTab** — Act only on the page the user is actively reading, and only when they turn the extension on (toolbar icon or Alt+A).
+- **Host permissions** (covers the `<all_urls>` content script + API origins) — The content script runs on the pages the user chooses to read to detect and annotate vocabulary in place (it only reads page text to render annotations). The host origins — Google Translate, Youdao, iCIBA, and the optional AI providers (Google Gemini, OpenAI, Anthropic, DeepSeek, Moonshot/Kimi, Zhipu/GLM, Alibaba Qwen) — are used to send translation/definition requests to the dictionary/AI service the user selects, using the user's own API key. The optional `https://*/*` permission is requested at runtime only if the user configures a custom OpenAI-compatible endpoint.
+
+**Are you using remote code? — No**
+
+> All executable code (JavaScript/WASM) ships inside the extension package. The extension never loads, injects, or evals remote scripts. It only makes network requests to translation/dictionary APIs to retrieve translation DATA (text/JSON), which is parsed and displayed, never executed.
+
+**What user data do you collect/use?**
+
+- Personally identifiable info / Health / Financial & payment / Personal communications / Location / Web history / User activity → **No (leave unchecked)**
+- **Authentication information → Yes** — the third-party translation/AI API key the user enters themselves; stored only locally (local/sync, may sync via the browser account) and used only to make requests to the user's chosen service on their behalf; never sent to the developer.
+- **Website content → Yes** — to annotate in place, the extension reads the current page's text; for select-to-translate it sends the selected text (and a little surrounding context) to the translation/AI service the user chose. Never sent to the developer; not retained on any developer server.
+
+**Data-use certifications (all compliant → can be attested)**
+
+- Not using/transferring data for unrelated purposes: compliant.
+- Not using data to determine creditworthiness / for lending: compliant.
+- Not selling or transferring data to third parties: compliant (sending text to the service the *user themselves selects* is the approved use case required to deliver the core feature, not a sale/transfer).
+
+**Privacy policy URL**: https://github.com/mohiria/In-Reading/blob/main/PRIVACY_POLICY.md
