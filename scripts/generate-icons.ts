@@ -17,7 +17,7 @@ const icons = [
   { size: 128, name: 'icon-active' },
 ];
 
-const getSvg = (isActive: boolean) => {
+const getSvg = (isActive: boolean, showStatus = true) => {
   // Modern Cyber Palette
   const onBgStart = '#3B82F6';     // Electric Blue
   const onBgEnd = '#6366F1';       // Indigo
@@ -58,7 +58,7 @@ const getSvg = (isActive: boolean) => {
         <path d="M72 52H104M88 52V62C88 74 82 84 68 88M80 74C84 80 92 88 106 88" stroke="${strokeColor}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
       
-      ${isActive ? `
+      ${isActive && showStatus ? `
         <!-- Minimalist Active Status -->
         <circle cx="112" cy="16" r="8" fill="#FFFFFF" />
         <circle cx="112" cy="16" r="5" fill="${onBgStart}" />
@@ -87,4 +87,17 @@ async function generateIcons() {
   console.log('All icons generated successfully.');
 }
 
-generateIcons().catch(console.error);
+// 300×300 store logo (Edge/Chrome listing asset — NOT bundled in the extension).
+// Reuses the active brand mark but drops the "on" status dot.
+async function generateStoreLogo() {
+  const outDir = path.resolve('docs/images');
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, 'store-logo-300.png');
+  await sharp(Buffer.from(getSvg(true, false)))
+    .resize(300, 300)
+    .png()
+    .toFile(outPath);
+  console.log(`✓ Generated store-logo-300.png (300×300)`);
+}
+
+generateIcons().then(generateStoreLogo).catch(console.error);
