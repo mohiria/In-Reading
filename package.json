@@ -1,6 +1,6 @@
 {
   "name": "in-reading",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "An immersive reading assistant for foreign language learners. Stay in the flow with level-aware inline annotations while reading native content.",
   "type": "module",
   "scripts": {
